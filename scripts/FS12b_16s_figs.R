@@ -1,5 +1,10 @@
 ## libraries ##
-
+library(tidyverse)
+library(phyloseq)
+library(vegan)
+library(funfuns)
+library(broom)
+library(DESeq2)
 
 ## Build phyloseq object ##
 
@@ -83,15 +88,15 @@ pdispers <- permutest(dispers, pairwise = TRUE)
 
 dispersdf <- data.frame(dispers$distances)
 dispersdf$group <- rownames(dispersdf)
-FS12b@sam_data$sample_ID == dispersdf$group
+FS12b@sam_data$ID == dispersdf$group
 
 
-meta$sample_ID %in% dispersdf$group
+# meta$sample_ID %in% dispersdf$group
 
-colnames(dispersdf)[2] <- 'sample_ID'
+colnames(dispersdf)[2] <- 'ID'
 FS12b_meta <- FS12b_metanmds[[1]]
 
-FS12b_meta <- merge(FS12b_meta, dispersdf, by='sample_ID')
+FS12b_meta <- merge(FS12b_meta, dispersdf, by='ID')
 FS12b_meta$day <- as.numeric(gsub('D', '', FS12b_meta$day))
 FS12b_meta$dayfact <- factor(FS12b_meta$day)
 
@@ -178,7 +183,6 @@ FS12b_meta %>%
 #   ps
 #   
 # }
-library(broom)
 
 disper_fecal_tests <- FS12b_meta %>%
   filter(tissue =='F') %>%
@@ -189,7 +193,7 @@ disper_fecal_tests <- FS12b_meta %>%
          tid_tuk=map(TUK, tidy)) %>%
   select(day, tid_tuk) %>% unnest(cols = c(tid_tuk))# %>% select(day, starts_with('control'))
 
-disper_fecal_tests %>% filter(grepl('Control', comparison)) %>% 
+disper_fecal_tests %>% filter(grepl('Control', contrast)) %>% 
   filter(adj.p.value < 0.05)
 
 
@@ -218,11 +222,33 @@ shan_fecal_tests <- FS12b_meta %>%
          tid_tuk=map(TUK, tidy)) %>%
   select(day, tid_tuk) %>% unnest(cols = c(tid_tuk))
 
-shan_fecal_tests %>% filter(grepl('Control', comparison)) %>% 
+shan_fecal_tests %>% filter(grepl('Control', contrast)) %>% 
   filter(adj.p.value < 0.05)
 
 
+###
 
+
+
+shan_fecal_tests <- FS12b_meta %>%
+  filter(tissue =='F') %>%
+  group_by(day) %>% 
+  nest() %>%
+  mutate(ANOVA = map(data, ~ aov(data=., formula = shan ~ treatment)), 
+         TUK   = map(ANOVA, TukeyHSD), 
+         tid_tuk=map(TUK, tidy)) %>%
+  select(day, tid_tuk) %>% unnest(cols = c(tid_tuk))
+
+shan_fecal_tests %>% filter(grepl('Control', contrast)) %>% 
+  mutate(p.FDR=p.adjust(adj.p.value)) %>% 
+  filter(adj.p.value < 0.05)
+
+# 
+# library(lme4)
+# library(lmerTest)
+# 
+# lmer(data = FS12b_meta, formula = )
+# 
 
 
 # 
@@ -273,9 +299,9 @@ greys <- FS12b_meta
 
 feces_nmds <- FS12b_feces_nmds[[1]]
 
-FS12b_meta <- feces_nmds %>% select(sample_ID, MDS1, MDS2) %>%
+FS12b_meta <- feces_nmds %>% select(ID, MDS1, MDS2) %>%
   mutate(fMDS1=MDS1, fMDS2=MDS2) %>%
-  select(sample_ID, fMDS1, fMDS2) %>%
+  select(ID, fMDS1, fMDS2) %>%
   right_join(FS12b_meta)
 
 
@@ -575,7 +601,7 @@ to_conts
 FS12b_HL <- FS12b %>% subset_samples(treatment %in% c('Control', 'RPS') & tissue =='F')
 FS12b_HL <- FS12b %>% subset_samples(treatment %in% c('Control', 'RPS'))
 
-FS12b_HL %>% subset_samples(treatment == 'RPS') %>% sample_data() %>% select(pignum)
+# FS12b_HL %>% subset_samples(treatment == 'RPS') %>% sample_data() %>% select(pignum)
 
 
 FS12b_HL@sam_data$shed <- ifelse(FS12b_HL@sam_data$pignum %in% c(373,321,181,392,97), 'low', 
