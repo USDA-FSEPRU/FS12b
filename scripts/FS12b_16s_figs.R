@@ -51,7 +51,7 @@ FS12b_metanmds <- NMDS_ellipse(metadata = FS12b@sam_data,
                                OTU_table = data.frame(rrarefy(FS12b@otu_table, min(rowSums(FS12b@otu_table)))),
                                grouping_set = 'set',distance_method = 'bray')
 
-FS12b_metanmds
+# FS12b_metanmds
 
 
 
@@ -72,12 +72,8 @@ FS12b_feces_nmds[[1]] %>%
   geom_point() +
   geom_text(aes(label=pignum))
 
+#
 
-# transform_sample_counts()
-# rarefy_even_depth(FS12b)@otu_table
-
-# I DONT THNK THIS DIST IS FROM A RRAREFIED OTU TABLE #
-# Fixed #
 FS12b_jac <- vegdist(rarefy_even_depth(FS12b)@otu_table, method = 'bray')
 FS12b_jac
 
@@ -110,9 +106,10 @@ FS12b_meta$shan <- diversity(rrarefy(FS12b@otu_table, min(rowSums(FS12b@otu_tabl
 FS12b_meta$rich <- specnumber(rrarefy(FS12b@otu_table, min(rowSums(FS12b@otu_table))))
 FS12b_meta$even <- FS12b_meta$shan/log(FS12b_meta$rich)
 
-
+### SUPPLEMENTAL FIGURES ###
 #fecal shannon
 
+shan_fig <- 
 FS12b_meta %>% 
   filter(tissue == 'F') %>%
   ggplot(aes(x=treatment, y=shan, group=set, fill = treatment)) +
@@ -122,8 +119,10 @@ FS12b_meta %>%
   ggtitle('Fecal Shannon Diversity (alpha) over time')  + 
   geom_jitter(shape = 21, stroke=1.2, size=2, width = .2)
 
+shan_fig
 
 #fecal even
+even_fig <- 
 FS12b_meta %>%
   filter(tissue == 'F') %>%
   ggplot(aes(x=treatment, y=even, group=set, fill = treatment)) +
@@ -133,7 +132,9 @@ FS12b_meta %>%
   ggtitle('Fecal evenness over time')+
   geom_jitter(shape = 21, stroke=1.2, size=2, width = .2)
 
+even_fig
 #fecal rich
+rich_fig <- 
 FS12b_meta %>% 
   filter(tissue == 'F') %>% 
   ggplot(aes(x=treatment, y=rich, group=set, fill = treatment)) +
@@ -143,8 +144,9 @@ FS12b_meta %>%
   ggtitle('Fecal richness (num OTUs) over time')+
   geom_jitter(shape = 21, stroke=1.2, size=2, width = .2)
 
-
+rich_fig
 #fecal dispersion
+disper_fig <- 
 FS12b_meta %>% 
   filter(tissue == 'F') %>%
   ggplot(aes(x=treatment, y=dispers.distances, group=set, fill = treatment)) + 
@@ -154,7 +156,7 @@ FS12b_meta %>%
   ggtitle('Fecal community dispersion over time')+
   geom_jitter(shape = 21, stroke=1.2, size=2, width = .2)
 
-
+disper_fig
 # FS12b_meta %>%
 #   filter(tissue == 'F') %>%
 #   ggplot(aes(x=day, y=dispers.distances, group=pignum, color=treatment)) + 
@@ -193,25 +195,14 @@ disper_fecal_tests <- FS12b_meta %>%
          tid_tuk=map(TUK, tidy)) %>%
   select(day, tid_tuk) %>% unnest(cols = c(tid_tuk))# %>% select(day, starts_with('control'))
 
-disper_fecal_tests %>% filter(grepl('Control', contrast)) %>% 
+disper_fecal_tests %>% filter(grepl('Control', comparison)) %>% 
   filter(adj.p.value < 0.05)
 
 
 # 
-# get_pairs <- function(df){
-#   pp <- pairwise.wilcox.test(df$shan, df$treatment, p.adjust.method = 'none')
-#   ppdf <- as.data.frame(pp$p.value)
-#   ps <- data.frame(matrix(c(pp$p.value), nrow = 1))
-#   names(ps) <- paste(c(rep(names(ppdf), each = nrow(ppdf))), "_vs_", rep(rownames(ppdf), ncol(ppdf)), sep = "")
-#   ps
-# 
-# }
-
-# 
-# shan_fecal_tests <- FS12b_meta %>% filter(tissue =='F') %>% group_by(day) %>% 
-#   nest() %>% mutate(pps = map(data, get_pairs)) %>%
-#   select(day, pps) %>% unnest() %>% select(day, starts_with('control'))
-
+# words for results paragraph:
+# RPS sourced fecal communities had lower shannon diversity index on days 0 14 and 21
+# Acid lower on D0
 
 shan_fecal_tests <- FS12b_meta %>%
   filter(tissue =='F') %>%
@@ -222,25 +213,27 @@ shan_fecal_tests <- FS12b_meta %>%
          tid_tuk=map(TUK, tidy)) %>%
   select(day, tid_tuk) %>% unnest(cols = c(tid_tuk))
 
-shan_fecal_tests %>% filter(grepl('Control', contrast)) %>% 
+shan_fecal_tests %>% filter(grepl('Control', comparison)) %>% 
   filter(adj.p.value < 0.05)
 
 
 ###
 
 
-
-shan_fecal_tests <- FS12b_meta %>%
+# 
+rich_fecal_tests <- FS12b_meta %>%
   filter(tissue =='F') %>%
-  group_by(day) %>% 
+  group_by(day) %>%
   nest() %>%
-  mutate(ANOVA = map(data, ~ aov(data=., formula = shan ~ treatment)), 
-         TUK   = map(ANOVA, TukeyHSD), 
+  mutate(ANOVA = map(data, ~ aov(data=., formula = shan ~ treatment)),
+         TUK   = map(ANOVA, TukeyHSD),
          tid_tuk=map(TUK, tidy)) %>%
   select(day, tid_tuk) %>% unnest(cols = c(tid_tuk))
 
-shan_fecal_tests %>% filter(grepl('Control', contrast)) %>% 
-  mutate(p.FDR=p.adjust(adj.p.value)) %>% 
+
+### Whats this , errors
+shan_fecal_tests %>% filter(grepl('Control', contrast)) %>%
+  mutate(p.FDR=p.adjust(adj.p.value)) %>%
   filter(adj.p.value < 0.05)
 
 # 
@@ -274,6 +267,7 @@ shan_fecal_tests %>% filter(grepl('Control', contrast)) %>%
 # 
 # 
 
+## BACK TO ORDINATION PLT?
 
 
 df_ell <- FS12b_metanmds[[2]]
@@ -858,7 +852,7 @@ FS12.de <- DESeq(FS12.de, test = 'Wald', fitType = 'parametric')
 resultsNames(FS12.de)
 
 
-D2_highlow <-Deseq.quickplot(DeSeq.object = FS12.de,
+D2_highlow <- Deseq.quickplot(DeSeq.object = FS12.de,
                              phyloseq.object = FS12b.glom, pvalue = .1, alpha = 0.1,
                              name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'normal', cookscut = FALSE)
 
@@ -874,9 +868,9 @@ FS12.de <- DESeq(FS12.de, test = 'Wald', fitType = 'parametric')
 resultsNames(FS12.de)
 
 
-D7_highlow <-Deseq.quickplot(DeSeq.object = FS12.de,
+D7_highlow <- Deseq.quickplot(DeSeq.object = FS12.de,
                              phyloseq.object = FS12b.glom, pvalue = .1, alpha = 0.1,
-                             name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'normal', cookscut = FALSE)
+                             name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'apeglm', cookscut = FALSE)
 
 
 # D14 #
@@ -911,11 +905,12 @@ resultsNames(FS12.de)
 
 D21F_highlow <- Deseq.quickplot(DeSeq.object = FS12.de,
                                 phyloseq.object = FS12b.glom, pvalue = .1, alpha = 0.1,
-                                name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'normal', cookscut = FALSE)
+                                name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'apeglm', cookscut = FALSE)
 
 
 
 #### Tissue X
+
 
 
 FS12b.glom <- FS12_RPS
@@ -931,7 +926,7 @@ resultsNames(FS12.de)
 
 D21X_highlow <-Deseq.quickplot(DeSeq.object = FS12.de,
                                phyloseq.object = FS12b.glom, pvalue = .1, alpha = 0.1,
-                               name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'normal', cookscut = FALSE)
+                               name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'apeglm', cookscut = FALSE)
 
 
 
@@ -952,7 +947,7 @@ resultsNames(FS12.de)
 
 D21C_highlow <-Deseq.quickplot(DeSeq.object = FS12.de,
                                phyloseq.object = FS12b.glom, pvalue = .1, alpha = 0.1,
-                               name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'normal', cookscut = FALSE)
+                               name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'apeglm', cookscut = FALSE)
 
 ##### tissue I
 
@@ -1254,6 +1249,7 @@ blarg <- function(phyloseq_obj, day, tissue, covariate, shrink_type='apeglm'){
 }
 
 blarg(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'log_sal')
+
 # nnnn[['test']] <- 'TEST'
 # blarg()
 # across all treatments
