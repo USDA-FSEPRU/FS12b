@@ -77,7 +77,10 @@ F1A
 # use this #
 # nest and do an anova at each timepoint
 library(broom)
-daily_tests <- sal_data %>% filter(time_point != 0) %>% group_by(time_point) %>% nest() %>% 
+daily_tests <- sal_data %>% 
+  filter(time_point != 0) %>% 
+  group_by(time_point) %>%
+  nest() %>% 
   mutate(AOV=map(.x = data, ~ aov(data=.x, log_sal ~ treatment)), 
          tid_AOV=map(AOV, tidy), 
          TUK=map(AOV, TukeyHSD), 
@@ -90,7 +93,7 @@ daily_tests %>% select(time_point, tid_AOV) %>% unnest(cols = tid_AOV)
 
 daily_tuks <- daily_tests %>%
   select(time_point, tid_TUK) %>% unnest(cols = tid_TUK) %>%
-  filter(grepl('control', comparison)) %>% 
+  filter(grepl('control', contrast)) %>% 
   mutate(tuk_pval=adj.p.value, 
          fdr_pval=p.adjust(adj.p.value, method = 'fdr'), 
          TPP=paste('Day', time_point), 
@@ -107,7 +110,7 @@ anno <- tibble(y=c(0,0,0,0),
 
 ### FIG 1B
 F1B <- daily_tuks %>%
-  ggplot(aes(x=comparison, y=estimate, ymin=conf.low, ymax=conf.high, color=comparison)) +
+  ggplot(aes(x=contrast, y=estimate, ymin=conf.low, ymax=conf.high, color=contrast)) +
   geom_hline(yintercept = 0, color='grey')+
   geom_pointrange(size=.5) + 
   geom_label(data=anno, aes(x=x,y=y,label=labtext), inherit.aes = FALSE)+
@@ -166,12 +169,12 @@ summary(aov_AULC)
 
 AULC_tuk <- TukeyHSD(aov_AULC) %>% tidy()
 
-F2B <- AULC_tuk %>% filter(grepl('control', comparison)) %>% 
-  mutate(comparison=factor(comparison, levels = c('RCS-control', 'Acid-control','RPS-control'))) %>%
-  ggplot(aes(x=comparison, y=estimate, ymin=conf.low, ymax=conf.high,color=comparison)) +
+F2B <- AULC_tuk %>% filter(grepl('control', contrast)) %>% 
+  mutate(contrast=factor(contrast, levels = c('RCS-control', 'Acid-control','RPS-control'))) %>%
+  ggplot(aes(x=contrast, y=estimate, ymin=conf.low, ymax=conf.high,color=contrast)) +
   geom_hline(yintercept = 0, color='grey') +
   geom_pointrange(size=.75) +
-  geom_text(aes(x=comparison,y=8,
+  geom_text(aes(x=contrast,y=8,
                 label=paste('P=', round(adj.p.value, 2))), 
             hjust=0) +
   ggtitle('ANOVA P = 0.012') + 
@@ -204,7 +207,7 @@ tis <- na.exclude(tis)
 
 tis <- tis %>% filter(!treatment %in% c('Zn+Cu', 'Bglu'))
 
-tis$treatment <- factor(tis$treatment, levels = c('control', 'RPS', 'Acid', 'Zn+Cu', 'RCS', 'Bglu'))
+tis$treatment <- factor(tis$treatment, levels = c('control', 'RPS', 'Acid', 'RCS'))
 
 
 # pairwise.wilcox.test(tis$log_sal[tis$tissue == 'cecal_cont'], tis$treatment[tis$tissue == 'cecal_cont'], p.adjust.method = 'none')
@@ -266,7 +269,7 @@ tis_anno <- tibble(y=c(0,0,0,0,0),
   
 tissue_tuks <- tis_tests %>%
   select(tissue, tid_TUK) %>% unnest(cols = tid_TUK) %>%
-  filter(grepl('control', comparison)) %>% 
+  filter(grepl('control', contrast)) %>% 
   mutate(tuk_pval=adj.p.value, 
          fdr_pval=p.adjust(adj.p.value, method = 'fdr')) %>% 
   select(-adj.p.value)
@@ -313,8 +316,8 @@ F3A
 # Figure 3B
 
 F3B <- tissue_tuks %>%
-  mutate(comparison = factor(comparison, levels=c('RCS-control', 'Acid-control','RPS-control'))) %>% 
-  ggplot(aes(x=comparison, y=estimate, ymin=conf.low, ymax=conf.high, color=comparison)) +
+  mutate(contrast = factor(contrast, levels=c('RCS-control', 'Acid-control','RPS-control'))) %>% 
+  ggplot(aes(x=contrast, y=estimate, ymin=conf.low, ymax=conf.high, color=contrast)) +
   geom_hline(yintercept = 0, color='grey')+
   geom_pointrange(size=.5) + 
   geom_label(data=tis_anno, aes(x=x,y=y,label=labtext), inherit.aes = FALSE, size=3)+
@@ -455,6 +458,33 @@ sum_sal %>%
   geom_histogram(color=alpha('black', alpha = .5)) +
   # geom_vline(xintercept = c(30.75, 44.5), color='purple') +
   scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple'))
+
+
+
+
+# high-low shedding curves
+
+sal_data <- sal_data %>%
+  mutate(treatment2=
+           case_when(
+            treatment == 'control'       ~ 'control', 
+            pignum %in% c(373,321,181,392,97) ~ 'RPS_low',
+            treatment == 'RPS' & !(pignum %in% c(373,321,181,392,97)) ~ 'RPS_high'
+  
+))
+
+sal_data %>%
+  ggplot(aes(x=time_point, y=log_sal)) +
+  geom_point(color='grey') + 
+  geom_line(data=sal_data %>% filter(treatment %in% c('control', 'RPS')), aes(group=pignum, color=treatment2))
+
+
+sal_data %>%
+  filter(treatment %in% c('control', 'RPS')) %>% 
+  ggplot(aes(x=treatment2, y=log_sal, fill=treatment2)) + 
+  geom_boxplot() + geom_jitter(width = .2) + 
+  facet_wrap(~time_point_fact, nrow = 1) + 
+  geom_text_repel(aes(label=pignum))
 
 
 

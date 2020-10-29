@@ -179,7 +179,7 @@ D21vfas <- vfas %>%
 # D21vfas$treatment
 
 D0_results <- D0vfas %>%
-  select(-formate) %>%
+  # select(-formate) %>%
   filter(pignum != 101) %>% 
   pivot_longer(cols = acetate:total,
                names_to = 'VFA',
@@ -192,7 +192,7 @@ D0_results <- D0vfas %>%
          tid_TUK=map(.x=TUK, broom::tidy)) %>% 
   select(-data, -ANOVA, -TUK) %>% 
   unnest(cols = tid_TUK) %>% 
-  filter(grepl('control', comparison))
+  filter(grepl('control', contrast))
 
 D21_results <- D21vfas %>% 
   pivot_longer(cols = acetate:total,
@@ -206,18 +206,22 @@ D21_results <- D21vfas %>%
          tid_TUK=map(.x=TUK, broom::tidy)) %>% 
   select(-data, -ANOVA, -TUK) %>% 
   unnest(cols = tid_TUK) %>% 
-  filter(grepl('control', comparison))
+  filter(grepl('control', contrast))
 
 
 
 D21_results %>% filter(VFA %in% c('butyrate', 'caproate', 'valerate')) %>% 
-  ggplot(aes(x=comparison, y=estimate, ymin=conf.low, ymax=conf.high, color=comparison)) + 
+  ggplot(aes(x=contrast, y=estimate, ymin=conf.low, ymax=conf.high, color=contrast)) + 
   geom_hline(yintercept = 0, color='grey')+
   geom_pointrange() + facet_wrap(~VFA, scales = 'free') + coord_flip()
 
 
+
+# probably omit D0 results, maybe supplement if anything.  
+
+
 D0_results %>%# filter(VFA %in% c('butyrate', 'caproate', 'valerate')) %>% 
-  ggplot(aes(x=comparison, y=estimate, ymin=conf.low, ymax=conf.high, color=comparison)) + 
+  ggplot(aes(x=contrast, y=estimate, ymin=conf.low, ymax=conf.high, color=contrast)) + 
   geom_hline(yintercept = 0, color='grey')+
   geom_pointrange() + facet_wrap(~VFA, scales = 'free') + coord_flip()
 
