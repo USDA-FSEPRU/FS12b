@@ -23,6 +23,7 @@ TAX <- read_tsv('./data/FS12b_tax.tsv') %>%
 MET <- read_tsv('./data/FS12b_meta.tsv') %>%
   mutate(ID=sample_ID) %>%
   select(ID, everything()) %>% 
+  mutate(treatment=factor(treatment, levels = c('Control', 'RPS', 'Acid', 'RCS'))) %>% 
   column_to_rownames(var='sample_ID') %>% 
   sample_data()
 
@@ -32,85 +33,234 @@ FS12b <- phyloseq(MET, TAX, OTU)
 
 
 
-### PASTE ZONE ###
+### Ordinations ###
+# not including ordinations 
+# fecal only ordinations #
+# FS12b_feces <- FS12b %>% 
+#   prune_samples(samples = FS12b@sam_data$tissue =='F')
+# 
+# FS12b_feces_meta <- FS12b_feces@sam_data %>% data.frame()
+# FS12b_feces_OTU <- rrarefy(FS12b_feces@otu_table, min(rowSums(FS12b_feces@otu_table))) %>%
+#   data.frame()
+# 
+# 
+# FS12b_feces_nmds <- NMDS_ellipse(metadata = FS12b_feces_meta,
+#                                  OTU_table = FS12b_feces_OTU,
+#                                  grouping_set = 'set',distance_method = 'bray')
+# 
+# 
+# FS12b_metanmds <- NMDS_ellipse(metadata = FS12b@sam_data,
+#                                OTU_table = data.frame(rrarefy(FS12b@otu_table, min(rowSums(FS12b@otu_table)))),
+#                                grouping_set = 'set',distance_method = 'bray')
+# 
+# # FS12b_metanmds
+# 
+# 
+# 
+# 
+# nums <- FS12b_metanmds[[1]] %>% group_by(set) %>% summarise(N=n())
+# FS12b_metanmds[[1]]
+# FS12b_metanmds[[3]]
+# 
+# 
+# x <- envfit(ord=FS12b_feces_nmds[[3]], env=FS12b_feces_nmds[[1]]$AULC)
+# # envfit(ord=FS12b_metanmds[[3]], env=FS12b_metanmds[[1]]$log_sal)
+# plot(FS12b_feces_nmds[[3]])
+# plot(x)
+# 
+# 
+# FS12b_feces_nmds[[1]] %>%
+#   ggplot(aes(x=MDS1, y=MDS2, color=treatment))+
+#   geom_point() +
+#   geom_text(aes(label=pignum))
+# 
+# 
+# df_ell <- FS12b_metanmds[[2]]
+# 
+# df_ell$experiment <- gsub('(.*)_(.*)_(.*)_(.*)','\\1', df_ell$group)
+# df_ell$day <- gsub('(.*)_(.*)_(.*)_(.*)','\\2', df_ell$group)
+# df_ell$day <- gsub('D', '', df_ell$day)
+# df_ell$day <- factor(df_ell$day, levels = c(0, 2, 7, 14, 21))
+# 
+# df_ell$tissue <- gsub('(.*)_(.*)_(.*)_(.*)','\\3', df_ell$group)
+# df_ell$treatment <- gsub('(.*)_(.*)_(.*)_(.*)','\\4', df_ell$group)
+# 
+# 
+# 
+# FS12b_meta$day <- factor(FS12b_meta$day, levels = c(0, 2, 7, 14, 21))
+# FS12b_meta$treatment <- factor(FS12b_meta$treatment, levels = c('Control', 'RPS', 'Acid','ZnCu', 'RCS', 'Bglu'))
+# df_ell$treatment <- factor(df_ell$treatment, levels = c('Control', 'RPS', 'Acid','ZnCu', 'RCS', 'Bglu'))
+# 
+# 
+# greys <- FS12b_meta
+# 
+# ### adding feces only coordinates ###
+# 
+# feces_nmds <- FS12b_feces_nmds[[1]]
+# 
+# FS12b_meta <- feces_nmds %>% select(ID, MDS1, MDS2) %>%
+#   mutate(fMDS1=MDS1, fMDS2=MDS2) %>%
+#   select(ID, fMDS1, fMDS2) %>%
+#   right_join(FS12b_meta)
+# 
+# 
+# ###
+# 
+# 
+# 
+# FS12b_meta %>% filter(tissue == 'F' & day == 0) %>% 
+#   ggplot(aes(x=MDS1, y=MDS2, fill=treatment, color=treatment)) +
+#   geom_point(data=greys, inherit.aes = FALSE, color='grey', aes(x=MDS1, y=MDS2), size=2) + geom_point(alpha=0.5, size=2) +  
+#   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + 
+#   geom_path(data = filter(df_ell, tissue == 'F' & day == 0), aes(x=NMDS1,y=NMDS2), size=1.05)+
+#   scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + theme(panel.background = element_blank()) + 
+#   annotate(geom='text', label='Day 0', x=-1.25, y=.6, size = 7)
+# 
+# 
+# 
+# FS12b_meta %>% filter(tissue == 'F' & day == 2) %>% 
+#   ggplot(aes(x=MDS1, y=MDS2, fill=treatment, color=treatment)) +
+#   geom_point(data=greys, inherit.aes = FALSE, color='grey', aes(x=MDS1, y=MDS2), size=2) + geom_point(alpha=0.5, size=2) +  
+#   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + 
+#   geom_path(data = filter(df_ell, tissue == 'F' & day == 2), aes(x=NMDS1,y=NMDS2), size=1.05)+
+#   scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + theme(panel.background = element_blank()) + 
+#   annotate(geom='text', label='Day 2', x=-1.25, y=.6, size = 7)
+# 
+# 
+# 
+# FS12b_meta %>% filter(tissue == 'F' & day == 7) %>% 
+#   ggplot(aes(x=MDS1, y=MDS2, fill=treatment, color=treatment)) +
+#   geom_point(data=greys, inherit.aes = FALSE, color='grey', aes(x=MDS1, y=MDS2), size=2) + geom_point(alpha=0.5, size=2) +  
+#   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + 
+#   geom_path(data = filter(df_ell, tissue == 'F' & day == 7), aes(x=NMDS1,y=NMDS2), size=1.05)+
+#   scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + theme(panel.background = element_blank()) + 
+#   annotate(geom='text', label='Day 7', x=-1.25, y=.6, size = 7)
+# 
+# 
+# 
+# FS12b_meta %>% filter(tissue == 'F' & day == 14) %>% 
+#   ggplot(aes(x=MDS1, y=MDS2, fill=treatment, color=treatment)) +
+#   geom_point(data=greys, inherit.aes = FALSE, color='grey', aes(x=MDS1, y=MDS2), size=2) + geom_point(alpha=0.5, size=2) +  
+#   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + 
+#   geom_path(data = filter(df_ell, tissue == 'F' & day == 14), aes(x=NMDS1,y=NMDS2), size=1.05)+
+#   scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + theme(panel.background = element_blank()) + 
+#   annotate(geom='text', label='Day 14', x=-1.25, y=.6, size = 7)
+# 
+# 
+# 
+# FS12b_meta %>% filter(tissue == 'F' & day == 21) %>% 
+#   ggplot(aes(x=MDS1, y=MDS2, fill=treatment, color=treatment)) +
+#   geom_point(data=greys, inherit.aes = FALSE, color='grey', aes(x=MDS1, y=MDS2), size=2) + geom_point(alpha=0.5, size=2) +  
+#   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + 
+#   geom_path(data = filter(df_ell, tissue == 'F' & day == 21), aes(x=NMDS1,y=NMDS2), size=1.05)+
+#   scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + theme(panel.background = element_blank()) + 
+#   annotate(geom='text', label='Day 21 feces', x=-.5, y=.6, size = 7)
+# 
+# 
+# 
+# FS12b_meta %>% filter(tissue == 'C' & day == 21) %>% 
+#   ggplot(aes(x=MDS1, y=MDS2, fill=treatment, color=treatment)) +
+#   # geom_point(data=greys, inherit.aes = FALSE, color='grey', aes(x=MDS1, y=MDS2), size=2) + geom_point(alpha=0.5, size=2) +  
+#   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + 
+#   geom_path(data = filter(df_ell, tissue == 'C' & day == 21), aes(x=NMDS1,y=NMDS2), size=1.05)+
+#   scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + theme(panel.background = element_blank()) + 
+#   annotate(geom='text', label='Day 21\nCecal Contents', x=-0, y=.0, size = 7)
+# 
+# 
+# 
+# FS12b_meta %>% filter(tissue == 'X' & day == 21) %>% 
+#   ggplot(aes(x=MDS1, y=MDS2, fill=treatment, color=treatment)) +
+#   # geom_point(data=greys, inherit.aes = FALSE, color='grey', aes(x=MDS1, y=MDS2), size=2) + geom_point(alpha=0.5, size=2) +  
+#   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + 
+#   geom_path(data = filter(df_ell, tissue == 'X' & day == 21), aes(x=NMDS1,y=NMDS2), size=1.05)+
+#   scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + theme(panel.background = element_blank()) + 
+#   annotate(geom='text', label='Day 21\nCecal Mucosa', x=-0, y=.6, size = 7)
+# 
+# FS12b_meta %>% filter(tissue == 'I' & day == 21) %>% 
+#   ggplot(aes(x=MDS1, y=MDS2, fill=treatment, color=treatment)) +
+#   # geom_point(data=greys, inherit.aes = FALSE, color='grey', aes(x=MDS1, y=MDS2), size=2) + geom_point(alpha=0.5, size=2) +  
+#   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + 
+#   geom_path(data = filter(df_ell, tissue == 'I' & day == 21), aes(x=NMDS1,y=NMDS2), size=1.05)+
+#   scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + theme(panel.background = element_blank()) + 
+#   annotate(geom='text', label='Day 21\nIleal Mucosa', x=-0, y=.6, size = 5)
+
+####
+# INSERTED #
+
+### This is interesting... What does this mean?? ####
+# need to move this whole section down below merge #
+# FS12b_meta %>% filter(tissue == 'F') %>%
+#   group_by(day, treatment) %>% 
+#   summarise(fMDS1=mean(fMDS1),
+#             fMDS2=mean(fMDS2)) %>% 
+#   ggplot(aes(x=day, y=fMDS1, group=treatment, color=treatment)) +
+#   geom_line() + geom_point()
 
 
-FS12b_feces <- FS12b %>% prune_samples(samples = FS12b@sam_data$tissue =='F')
+##### #####
+# FS12b_meta %>% ggplot(aes(pen, fill=treatment))+geom_histogram(binwidth = 1)
 
-FS12b_feces_meta <- FS12b_feces@sam_data %>% data.frame()
-FS12b_feces_OTU <- rrarefy(FS12b_feces@otu_table, min(rowSums(FS12b_feces@otu_table))) %>%
-  data.frame()
+# FS12b_meta %>% filter(tissue == 'F') %>%
+#   group_by(day, treatment) %>% 
+#   summarise(fMDS1=mean(fMDS1),
+#             fMDS2=mean(fMDS2)) %>% 
+#   ggplot(aes(x=day, y=fMDS2, group=treatment, color=treatment)) +
+#   geom_line() + geom_point()
 
+# FS12b_meta %>% filter(tissue == 'F') %>%
+#   ggplot(aes(x=day, y=fMDS1, group=pignum)) +
+#   geom_line() + geom_point(aes(color=pen))
 
-FS12b_feces_nmds <- NMDS_ellipse(metadata = FS12b_feces_meta,
-                                 OTU_table = FS12b_feces_OTU,
-                                 grouping_set = 'set',distance_method = 'bray')
+# FS12b_meta %>% filter(tissue == 'F') %>%
+#   ggplot(aes(x=day, y=fMDS2, group=pignum, color=treatment)) +
+#   geom_line() + geom_point()
 
-
-FS12b_metanmds <- NMDS_ellipse(metadata = FS12b@sam_data,
-                               OTU_table = data.frame(rrarefy(FS12b@otu_table, min(rowSums(FS12b@otu_table)))),
-                               grouping_set = 'set',distance_method = 'bray')
-
-# FS12b_metanmds
-
-
-
-
-nums <- FS12b_metanmds[[1]] %>% group_by(set) %>% summarise(N=n())
-FS12b_metanmds[[1]]
-FS12b_metanmds[[3]]
+# FS12b_meta %>% filter(tissue == 'F') %>%
+#   ggplot(aes(x=day, y=even, group=pignum, color=treatment)) +
+#   geom_line() + geom_point() 
 
 
-x <- envfit(ord=FS12b_feces_nmds[[3]], env=FS12b_feces_nmds[[1]]$AULC)
-# envfit(ord=FS12b_metanmds[[3]], env=FS12b_metanmds[[1]]$log_sal)
-plot(FS12b_feces_nmds[[3]])
-plot(x)
 
 
-FS12b_feces_nmds[[1]] %>%
-  ggplot(aes(x=MDS1, y=MDS2, color=treatment))+
-  geom_point() +
-  geom_text(aes(label=pignum))
+### ALPHA AND DISPERSION ###
 
-#
+
 
 FS12b_jac <- vegdist(rarefy_even_depth(FS12b)@otu_table, method = 'bray')
-FS12b_jac
+# FS12b_jac
 
-attr(FS12b_jac, which = 'Labels') == FS12b@sam_data$sample_ID
+all(attr(FS12b_jac, which = 'Labels') == FS12b@sam_data$ID)
 dispers <- betadisper(FS12b_jac, group = FS12b@sam_data$set)
-pdispers <- permutest(dispers, pairwise = TRUE)
+# pdispers <- permutest(dispers, pairwise = TRUE)
 # pdispers$pairwise$observed
 
 dispersdf <- data.frame(dispers$distances)
-dispersdf$group <- rownames(dispersdf)
-FS12b@sam_data$ID == dispersdf$group
-
+dispersdf$ID <- rownames(dispersdf)
+all(FS12b@sam_data$ID == dispersdf$ID)
+FS12b@sam_data$disper_dist <- dispersdf$dispers.distances
 
 # meta$sample_ID %in% dispersdf$group
 
-colnames(dispersdf)[2] <- 'ID'
-FS12b_meta <- FS12b_metanmds[[1]]
+# FS12b_meta <- FS12b_metanmds[[1]]
 
-FS12b_meta <- merge(FS12b_meta, dispersdf, by='ID')
-FS12b_meta$day <- as.numeric(gsub('D', '', FS12b_meta$day))
-FS12b_meta$dayfact <- factor(FS12b_meta$day)
+# FS12b_meta <- merge(FS12b_meta, dispersdf, by='ID')
+FS12b@sam_data$day <- as.numeric(gsub('D', '', FS12b@sam_data$day))
+FS12b@sam_data$dayfact <- factor(FS12b@sam_data$day)
 
 
 # FS12b_meta$treatment <- factor(FS12b_meta$treatment, levels = c('Control', 'RPS', 'Acid','ZnCu', 'RCS', 'Bglu'))
-FS12b_meta$treatment <- factor(FS12b_meta$treatment, levels = c('Control', 'RPS', 'Acid', 'RCS'))
+# FS12b_meta$treatment <- factor(FS12b_meta$treatment, levels = c('Control', 'RPS', 'Acid', 'RCS'))
 
 
-FS12b_meta$shan <- diversity(rrarefy(FS12b@otu_table, min(rowSums(FS12b@otu_table))))
+FS12b@sam_data$shan <- diversity(rrarefy(FS12b@otu_table, min(rowSums(FS12b@otu_table))))
+FS12b@sam_data$rich <- specnumber(rrarefy(FS12b@otu_table, min(rowSums(FS12b@otu_table))))
+FS12b@sam_data$even <- FS12b@sam_data$shan/log(FS12b@sam_data$rich)
 
-FS12b_meta$rich <- specnumber(rrarefy(FS12b@otu_table, min(rowSums(FS12b@otu_table))))
-FS12b_meta$even <- FS12b_meta$shan/log(FS12b_meta$rich)
-
-### SUPPLEMENTAL FIGURES ###
 #fecal shannon
 
 shan_fig <- 
-FS12b_meta %>% 
+  FS12b@sam_data %>%
+  as_tibble() %>% 
   filter(tissue == 'F') %>%
   ggplot(aes(x=treatment, y=shan, group=set, fill = treatment)) +
   geom_boxplot() +
@@ -121,35 +271,53 @@ FS12b_meta %>%
 
 shan_fig
 
-#fecal even
-even_fig <- 
-FS12b_meta %>%
+
+# OR 
+FS12b@sam_data %>%
+  as_tibble() %>% 
   filter(tissue == 'F') %>%
-  ggplot(aes(x=treatment, y=even, group=set, fill = treatment)) +
-  geom_boxplot() +
-  facet_wrap(~day, nrow = 1)+
-  scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
-  ggtitle('Fecal evenness over time')+
-  geom_jitter(shape = 21, stroke=1.2, size=2, width = .2)
+  group_by(treatment, day) %>% 
+  summarise(shannon = mean(shan), 
+            stder   = sd(shan)/sqrt(n())) %>% 
+  ggplot(aes(x=day, y=shannon, color=treatment)) +
+  geom_point(size=3) + 
+  geom_errorbar(aes(ymin=shannon - stder, ymax=shannon + stder), width=.2)+
+  geom_line(aes(group=treatment), size=1) + 
+  scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple'))
 
-even_fig
-#fecal rich
-rich_fig <- 
-FS12b_meta %>% 
-  filter(tissue == 'F') %>% 
-  ggplot(aes(x=treatment, y=rich, group=set, fill = treatment)) +
-  geom_boxplot() +
-  facet_wrap(~day,  nrow = 1)+
-  scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) +
-  ggtitle('Fecal richness (num OTUs) over time')+
-  geom_jitter(shape = 21, stroke=1.2, size=2, width = .2)
 
-rich_fig
+
+
+# #fecal even
+# even_fig <- 
+# FS12b_meta %>%
+#   filter(tissue == 'F') %>%
+#   ggplot(aes(x=treatment, y=even, group=set, fill = treatment)) +
+#   geom_boxplot() +
+#   facet_wrap(~day, nrow = 1)+
+#   scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
+#   ggtitle('Fecal evenness over time')+
+#   geom_jitter(shape = 21, stroke=1.2, size=2, width = .2)
+# 
+# even_fig
+# #fecal rich
+# rich_fig <- 
+# FS12b_meta %>% 
+#   filter(tissue == 'F') %>% 
+#   ggplot(aes(x=treatment, y=rich, group=set, fill = treatment)) +
+#   geom_boxplot() +
+#   facet_wrap(~day,  nrow = 1)+
+#   scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) +
+#   ggtitle('Fecal richness (num OTUs) over time')+
+#   geom_jitter(shape = 21, stroke=1.2, size=2, width = .2)
+# 
+# rich_fig
 #fecal dispersion
 disper_fig <- 
-FS12b_meta %>% 
+  FS12b@sam_data %>%
+  as_tibble() %>% 
   filter(tissue == 'F') %>%
-  ggplot(aes(x=treatment, y=dispers.distances, group=set, fill = treatment)) + 
+  ggplot(aes(x=treatment, y=disper_dist, group=set, fill = treatment)) + 
   geom_boxplot() +
   facet_wrap(~day,  nrow = 1)+
   scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple'))  + 
@@ -186,16 +354,18 @@ disper_fig
 #   
 # }
 
-disper_fecal_tests <- FS12b_meta %>%
+disper_fecal_tests <-
+  FS12b@sam_data %>%
+  as_tibble()  %>%
   filter(tissue =='F') %>%
   group_by(day) %>% 
   nest() %>%
-  mutate(ANOVA = map(data, ~ aov(data=., formula = dispers.distances ~ treatment)), 
+  mutate(ANOVA = map(data, ~ aov(data=., formula = disper_dist ~ treatment)), 
          TUK   = map(ANOVA, TukeyHSD), 
          tid_tuk=map(TUK, tidy)) %>%
   select(day, tid_tuk) %>% unnest(cols = c(tid_tuk))# %>% select(day, starts_with('control'))
 
-disper_fecal_tests %>% filter(grepl('Control', comparison)) %>% 
+disper_fecal_tests %>% filter(grepl('Control', contrast)) %>% 
   filter(adj.p.value < 0.05)
 
 
@@ -204,7 +374,9 @@ disper_fecal_tests %>% filter(grepl('Control', comparison)) %>%
 # RPS sourced fecal communities had lower shannon diversity index on days 0 14 and 21
 # Acid lower on D0
 
-shan_fecal_tests <- FS12b_meta %>%
+shan_fecal_tests <- 
+  FS12b@sam_data %>%
+  as_tibble()  %>%
   filter(tissue =='F') %>%
   group_by(day) %>% 
   nest() %>%
@@ -213,15 +385,18 @@ shan_fecal_tests <- FS12b_meta %>%
          tid_tuk=map(TUK, tidy)) %>%
   select(day, tid_tuk) %>% unnest(cols = c(tid_tuk))
 
-shan_fecal_tests %>% filter(grepl('Control', comparison)) %>% 
+shan_fecal_tests %>% filter(grepl('Control', contrast)) %>% 
   filter(adj.p.value < 0.05)
 
+# INCLUDE CONFIDENCE INTERVAL FIG???? #
 
 ###
 
 
 # 
-rich_fecal_tests <- FS12b_meta %>%
+rich_fecal_tests <- 
+  FS12b@sam_data %>%
+  as_tibble()  %>%
   filter(tissue =='F') %>%
   group_by(day) %>%
   nest() %>%
@@ -232,9 +407,10 @@ rich_fecal_tests <- FS12b_meta %>%
 
 
 ### Whats this , errors
-shan_fecal_tests %>% filter(grepl('Control', contrast)) %>%
+shan_fecal_tests %>% 
+  filter(grepl('Control', contrast)) %>%
   mutate(p.FDR=p.adjust(adj.p.value)) %>%
-  filter(adj.p.value < 0.05)
+  filter(p.FDR < 0.05)
 
 # 
 # library(lme4)
@@ -267,152 +443,6 @@ shan_fecal_tests %>% filter(grepl('Control', contrast)) %>%
 # 
 # 
 
-## BACK TO ORDINATION PLT?
-
-
-df_ell <- FS12b_metanmds[[2]]
-
-df_ell$experiment <- gsub('(.*)_(.*)_(.*)_(.*)','\\1', df_ell$group)
-df_ell$day <- gsub('(.*)_(.*)_(.*)_(.*)','\\2', df_ell$group)
-df_ell$day <- gsub('D', '', df_ell$day)
-df_ell$day <- factor(df_ell$day, levels = c(0, 2, 7, 14, 21))
-
-df_ell$tissue <- gsub('(.*)_(.*)_(.*)_(.*)','\\3', df_ell$group)
-df_ell$treatment <- gsub('(.*)_(.*)_(.*)_(.*)','\\4', df_ell$group)
-
-
-
-FS12b_meta$day <- factor(FS12b_meta$day, levels = c(0, 2, 7, 14, 21))
-FS12b_meta$treatment <- factor(FS12b_meta$treatment, levels = c('Control', 'RPS', 'Acid','ZnCu', 'RCS', 'Bglu'))
-df_ell$treatment <- factor(df_ell$treatment, levels = c('Control', 'RPS', 'Acid','ZnCu', 'RCS', 'Bglu'))
-
-
-greys <- FS12b_meta
-
-### adding feces only coordinates ###
-
-feces_nmds <- FS12b_feces_nmds[[1]]
-
-FS12b_meta <- feces_nmds %>% select(ID, MDS1, MDS2) %>%
-  mutate(fMDS1=MDS1, fMDS2=MDS2) %>%
-  select(ID, fMDS1, fMDS2) %>%
-  right_join(FS12b_meta)
-
-
-###
-
-
-
-FS12b_meta %>% filter(tissue == 'F' & day == 0) %>% 
-  ggplot(aes(x=MDS1, y=MDS2, fill=treatment, color=treatment)) +
-  geom_point(data=greys, inherit.aes = FALSE, color='grey', aes(x=MDS1, y=MDS2), size=2) + geom_point(alpha=0.5, size=2) +  
-  geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + 
-  geom_path(data = filter(df_ell, tissue == 'F' & day == 0), aes(x=NMDS1,y=NMDS2), size=1.05)+
-  scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + theme(panel.background = element_blank()) + 
-  annotate(geom='text', label='Day 0', x=-1.25, y=.6, size = 7)
-
-
-
-FS12b_meta %>% filter(tissue == 'F' & day == 2) %>% 
-  ggplot(aes(x=MDS1, y=MDS2, fill=treatment, color=treatment)) +
-  geom_point(data=greys, inherit.aes = FALSE, color='grey', aes(x=MDS1, y=MDS2), size=2) + geom_point(alpha=0.5, size=2) +  
-  geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + 
-  geom_path(data = filter(df_ell, tissue == 'F' & day == 2), aes(x=NMDS1,y=NMDS2), size=1.05)+
-  scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + theme(panel.background = element_blank()) + 
-  annotate(geom='text', label='Day 2', x=-1.25, y=.6, size = 7)
-
-
-
-FS12b_meta %>% filter(tissue == 'F' & day == 7) %>% 
-  ggplot(aes(x=MDS1, y=MDS2, fill=treatment, color=treatment)) +
-  geom_point(data=greys, inherit.aes = FALSE, color='grey', aes(x=MDS1, y=MDS2), size=2) + geom_point(alpha=0.5, size=2) +  
-  geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + 
-  geom_path(data = filter(df_ell, tissue == 'F' & day == 7), aes(x=NMDS1,y=NMDS2), size=1.05)+
-  scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + theme(panel.background = element_blank()) + 
-  annotate(geom='text', label='Day 7', x=-1.25, y=.6, size = 7)
-
-
-
-FS12b_meta %>% filter(tissue == 'F' & day == 14) %>% 
-  ggplot(aes(x=MDS1, y=MDS2, fill=treatment, color=treatment)) +
-  geom_point(data=greys, inherit.aes = FALSE, color='grey', aes(x=MDS1, y=MDS2), size=2) + geom_point(alpha=0.5, size=2) +  
-  geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + 
-  geom_path(data = filter(df_ell, tissue == 'F' & day == 14), aes(x=NMDS1,y=NMDS2), size=1.05)+
-  scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + theme(panel.background = element_blank()) + 
-  annotate(geom='text', label='Day 14', x=-1.25, y=.6, size = 7)
-
-
-
-FS12b_meta %>% filter(tissue == 'F' & day == 21) %>% 
-  ggplot(aes(x=MDS1, y=MDS2, fill=treatment, color=treatment)) +
-  geom_point(data=greys, inherit.aes = FALSE, color='grey', aes(x=MDS1, y=MDS2), size=2) + geom_point(alpha=0.5, size=2) +  
-  geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + 
-  geom_path(data = filter(df_ell, tissue == 'F' & day == 21), aes(x=NMDS1,y=NMDS2), size=1.05)+
-  scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + theme(panel.background = element_blank()) + 
-  annotate(geom='text', label='Day 21 feces', x=-.5, y=.6, size = 7)
-
-
-
-FS12b_meta %>% filter(tissue == 'C' & day == 21) %>% 
-  ggplot(aes(x=MDS1, y=MDS2, fill=treatment, color=treatment)) +
-  # geom_point(data=greys, inherit.aes = FALSE, color='grey', aes(x=MDS1, y=MDS2), size=2) + geom_point(alpha=0.5, size=2) +  
-  geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + 
-  geom_path(data = filter(df_ell, tissue == 'C' & day == 21), aes(x=NMDS1,y=NMDS2), size=1.05)+
-  scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + theme(panel.background = element_blank()) + 
-  annotate(geom='text', label='Day 21\nCecal Contents', x=-0, y=.0, size = 7)
-
-
-
-FS12b_meta %>% filter(tissue == 'X' & day == 21) %>% 
-  ggplot(aes(x=MDS1, y=MDS2, fill=treatment, color=treatment)) +
-  # geom_point(data=greys, inherit.aes = FALSE, color='grey', aes(x=MDS1, y=MDS2), size=2) + geom_point(alpha=0.5, size=2) +  
-  geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + 
-  geom_path(data = filter(df_ell, tissue == 'X' & day == 21), aes(x=NMDS1,y=NMDS2), size=1.05)+
-  scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + theme(panel.background = element_blank()) + 
-  annotate(geom='text', label='Day 21\nCecal Mucosa', x=-0, y=.6, size = 7)
-
-FS12b_meta %>% filter(tissue == 'I' & day == 21) %>% 
-  ggplot(aes(x=MDS1, y=MDS2, fill=treatment, color=treatment)) +
-  # geom_point(data=greys, inherit.aes = FALSE, color='grey', aes(x=MDS1, y=MDS2), size=2) + geom_point(alpha=0.5, size=2) +  
-  geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + 
-  geom_path(data = filter(df_ell, tissue == 'I' & day == 21), aes(x=NMDS1,y=NMDS2), size=1.05)+
-  scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + theme(panel.background = element_blank()) + 
-  annotate(geom='text', label='Day 21\nIleal Mucosa', x=-0, y=.6, size = 5)
-
-####
-# INSERTED #
-
-### This is interesting... What does this mean?? ####
-# need to move this whole section down below merge #
-# FS12b_meta %>% filter(tissue == 'F') %>%
-#   group_by(day, treatment) %>% 
-#   summarise(fMDS1=mean(fMDS1),
-#             fMDS2=mean(fMDS2)) %>% 
-#   ggplot(aes(x=day, y=fMDS1, group=treatment, color=treatment)) +
-#   geom_line() + geom_point()
-
-
-##### #####
-# FS12b_meta %>% ggplot(aes(pen, fill=treatment))+geom_histogram(binwidth = 1)
-
-# FS12b_meta %>% filter(tissue == 'F') %>%
-#   group_by(day, treatment) %>% 
-#   summarise(fMDS1=mean(fMDS1),
-#             fMDS2=mean(fMDS2)) %>% 
-#   ggplot(aes(x=day, y=fMDS2, group=treatment, color=treatment)) +
-#   geom_line() + geom_point()
-
-# FS12b_meta %>% filter(tissue == 'F') %>%
-#   ggplot(aes(x=day, y=fMDS1, group=pignum)) +
-#   geom_line() + geom_point(aes(color=pen))
-
-# FS12b_meta %>% filter(tissue == 'F') %>%
-#   ggplot(aes(x=day, y=fMDS2, group=pignum, color=treatment)) +
-#   geom_line() + geom_point()
-
-# FS12b_meta %>% filter(tissue == 'F') %>%
-#   ggplot(aes(x=day, y=even, group=pignum, color=treatment)) +
-#   geom_line() + geom_point() 
 
 
 
@@ -465,11 +495,14 @@ set.seed(71)
 
 # FS12b_rare <- FS12b %>% prune_samples(samples = sample_data(FS12b)$tissue != 'I')
 # changed this to only include feces
-FS12b_rare <- FS12b %>% prune_samples(samples = sample_data(FS12b)$tissue == 'F')
+FS12b_rare <- FS12b %>% 
+  prune_samples(samples = sample_data(FS12b)$tissue == 'F')
+
 FS12b_rare <- rarefy_even_depth(FS12b_rare)
 
 
 min(sample_sums(FS12b_rare))
+
 PW.ad <- pairwise.adonis(x=data.frame(FS12b_rare@otu_table), factors = FS12b_rare@sam_data$set, sim.method = 'bray', p.adjust.m = 'none', perm = 999)
 
 # PW.ad <- pairwise.adonis(x=rrarefy(FS12b@otu_table, min(rowSums(FS12b@otu_table))), factors = FS12b@sam_data$set, sim.method = 'jaccard', p.adjust.m = 'none', permutations = 9999)
@@ -546,15 +579,16 @@ to_conts$treatment <- factor(to_conts$treatment, levels=c('RPS', 'Acid', 'ZnCu',
 
 # ADD ALPHA DIV and DISPERSION 
 
-to_conts %>% filter(tissue == 'feces') %>% ggplot(aes(x=day, y=F.Model, group=treatment, fill=treatment, color=treatment, label=p.fdr.lab)) +
+FIG3A <- 
+  to_conts %>% filter(tissue == 'feces') %>% ggplot(aes(x=day, y=F.Model, group=treatment, fill=treatment, color=treatment, label=p.fdr.lab)) +
   geom_line(size=1.52) + geom_point(shape=21) + scale_color_manual(values=c('#3399FF', 'orange', 'red', 'grey', 'purple')) + 
   geom_label(color='black') +
-  scale_fill_manual(values=c('#3399FF', 'orange', 'red', 'grey', 'purple')) + 
-  ggtitle('Community differences compared to control group over time', subtitle = )
-
+  scale_fill_manual(values=c('#3399FF', 'orange', 'red', 'grey', 'purple')) #+ 
+  # ggtitle('Community differences compared to control group over time', subtitle = )
+FIG3A
 
 to_conts
-
+# shan will be fig 3B
 
 # tmp_adon <- same_day_tissue %>% filter(day %in% c('D0', 'D23'))
 # 
@@ -586,9 +620,91 @@ to_conts
 
 #SHOULD PLOT DIVERSITY AND RICHNESS AT SAME TIMEPOINTS HERE
 
+#############################################
 
 
-########### HIGH LOW TO CONT ##########
+# regular Differential abundance 
+
+
+
+
+# NEED TO SET FACTOR LEVELS FOR TREATMENTS
+FS12b@sam_data$treatment
+
+tocont <- list(DESeq_difabund(phyloseq = FS12b, day = 0, tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
+               # DESeq_difabund(phyloseq = FS12b, day = 'D0', tissue = 'Q', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
+               DESeq_difabund(phyloseq = FS12b, day = 2, tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
+               DESeq_difabund(phyloseq = FS12b, day = 7, tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
+               DESeq_difabund(phyloseq = FS12b, day = 14, tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
+               DESeq_difabund(phyloseq = FS12b, day = 21, tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
+               DESeq_difabund(phyloseq = FS12b, day = 21, tissue = 'C', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
+               DESeq_difabund(phyloseq = FS12b, day = 21, tissue = 'X', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
+               DESeq_difabund(phyloseq = FS12b, day = 21, tissue = 'I', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'))
+
+
+
+
+tocont <- bind_rows(tocont)
+
+tocontf <- tocont[abs(tocont$log2FoldChange) > .5,]
+
+tocontf %>% ggplot(aes(x=OTU, y=log2FoldChange, fill=Treatment)) + 
+ geom_point(shape=21) + coord_flip() 
+
+### WRITE OUT TOCONTF ###
+#tocontf %>% write_tsv('./figdat/diffabund_OTUS.tsv')
+
+#### ON TO SOMETHIGN HERE ####
+# some variation of this figure for  dif ab.
+# maybe do one panel for fecal difabund
+# one panel for tissue difabund
+tocontf %>% ggplot(aes(x=Genus, y=log2FoldChange, color=Treatment, shape=tissue)) +
+  geom_point() + coord_flip() + geom_hline(yintercept = 0, color='black', size=1) +
+  facet_wrap(~day, scales = 'free')
+
+
+###
+tocontf %>% filter(tissue == 'F') %>% ggplot(aes(x=Genus, y=log2FoldChange, color=Treatment)) + 
+  geom_point() + coord_flip() + geom_hline(yintercept = 0, color='black', size=1) +
+  facet_wrap(~day, scales = 'free' ,ncol = 1)
+
+
+
+
+
+
+biguns <- tocontf %>% group_by(OTU) %>% summarise(tot=sum(log2FoldChange)) %>% filter(tot >20) %>% select(OTU) %>% unlist()
+
+tocont %>% filter(OTU %in% biguns) %>% select(OTU,Genus) %>% unique()
+
+tocontf %>% group_by(OTU, Treatment) %>% tally() %>% filter(n>2) %>% as.data.frame()
+
+tocontf %>% group_by(Order) %>% tally() %>% arrange(desc(n)) %>% print(n=25)
+
+#### THIS ONE IS A GOOD FIGURE!!!!
+
+tocontf %>% 
+  filter(log2FoldChange > 0) %>%
+  mutate(Order_lump=fct_lump_n(Order, 9)) %>% 
+  group_by(comp, Order_lump) %>%
+  tally() %>% 
+  ggplot(aes(x=comp, y=n, fill=Order_lump)) +
+  geom_col(color='black') +
+  scale_fill_brewer(palette = 'Set1') +
+  ggtitle('number of OTUs enriched in each treatent relative to the control across all tissues and timepoints')
+
+tocontf %>% 
+  filter(log2FoldChange < 0) %>%
+  mutate(Order_lump=fct_lump_n(Order, 9)) %>% 
+  group_by(comp, Order_lump) %>%
+  tally() %>% 
+  ggplot(aes(x=comp, y=n, fill=Order_lump)) +
+  geom_col(color='black') +
+  scale_fill_brewer(palette = 'Set1') +
+  ggtitle('number of OTUs enriched in each treatent relative to the control across all tissues and timepoints')
+
+
+########## HIGH LOW TO CONT ##########
 
 ##SHOULD ORDINATE THIS TOO##
 
@@ -622,16 +738,16 @@ length(goods[,1])
 goods$pairs
 
 
-D0 <- goods[grep('D0', goods$pairs),]
+D0 <- goods[grep('0', goods$pairs),]
 D0$day <- 0
 
-D2 <- goods[grep('D2_', goods$pairs),]
+D2 <- goods[grep('2_', goods$pairs),]
 D2$day <- 2
-D7 <- goods[grep('D7', goods$pairs),]
+D7 <- goods[grep('7_', goods$pairs),]
 D7$day <- 7
-D14 <- goods[grep('D14', goods$pairs),]
+D14 <- goods[grep('14', goods$pairs),]
 D14$day <- 14
-D21 <- goods[grep('D21', goods$pairs),]
+D21 <- goods[grep('21', goods$pairs),]
 D21$day <- 21
 
 # I think fin and goods are the same thing right now.... why did I do this again?
@@ -655,8 +771,8 @@ to_conts <- fin[grep('Control', fin$pairs),]
 
 not_conts <- fin[-grep('Control', fin$pairs),]
 
-to_conts$tissue <- gsub('D[0-9]+ (.*) ([A-Za-z_]+) vs D[0-9]+ .* ([A-Za-z]+)', '\\1', to_conts$pairs)
-to_conts$treatment <- gsub('D[0-9]+ .* ([A-Za-z_]+) vs D[0-9]+ .* ([A-Za-z]+)', '\\2', to_conts$pairs)
+to_conts$tissue <- gsub('[0-9]+ (.*) ([A-Za-z_]+) vs [0-9]+ .* ([A-Za-z]+)', '\\1', to_conts$pairs)
+to_conts$treatment <- gsub('[0-9]+ .* ([A-Za-z_]+) vs [0-9]+ .* ([A-Za-z]+)', '\\2', to_conts$pairs)
 
 
 to_conts$p.fdr <- p.adjust(to_conts$p.value, method = 'fdr')
@@ -664,7 +780,10 @@ to_conts$p.fdr <- round(to_conts$p.fdr, digits = 3)
 to_conts$p.fdr.lab <- ifelse(to_conts$p.fdr < 0.05, to_conts$p.fdr, NA)
 
 # to_conts$treatment <- factor(to_conts$treatment, levels=c('RPS', 'Acid', 'ZnCu', 'RCS', 'Bglu'))
+### WRITE TO CONTS ####
+# to_conts %>% write_tsv('./fig_dat/High_low_PERMANOVA.tsv')
 
+# figure 5ish
 p1 <- to_conts %>% filter(tissue =='feces') %>%  ggplot(aes(x=day, y=F.Model, group=treatment, fill=treatment, color=treatment, label=p.fdr.lab)) +
   geom_line(size=1.52) + geom_point(shape=21) + scale_color_brewer(palette = 'Set1') + 
   geom_label(color='black') +
@@ -693,94 +812,46 @@ HIGH_LOW_NMDS <- NMDS_ellipse(OTU_table=HIGH_LOW_OTU, metadata = HIGH_LOW_META, 
 
 HIGH_LOW_NMDS[[1]]$shed <- factor(HIGH_LOW_NMDS[[1]]$shed, levels = c('high', 'low', 'Control'))
 
-HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='D0') %>%
+HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='0') %>%
   ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + geom_point(size=3)+
   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + scale_color_brewer(palette = 'Set1') + 
   ggtitle('Feces Day 0, RPS high/low & control')
 
 
-HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='D2') %>%
+HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='2') %>%
   ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + geom_point(size=3)+
   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + scale_color_brewer(palette = 'Set1') + 
   ggtitle('Feces Day 2, RPS high/low & control')
 
-HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='D7') %>%
+HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='7') %>%
   ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + geom_point(size=3)+
   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
   ggtitle('Feces Day 7, RPS high/low & control')
 
-HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='D14') %>%
+HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='14') %>%
   ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + geom_point(size=3)+
   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
   ggtitle('Feces Day 14, RPS high/low & control')
 
-HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='D21') %>%
+HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='21') %>%
   ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + geom_point(size=3)+
   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
   ggtitle('Feces Day 21, RPS high/low & control')
 
-HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'X' & day =='D21') %>%
+HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'X' & day =='21') %>%
   ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + geom_point(size=3)+
   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
   ggtitle('Feces Day 21, RPS high/low & control, Cecal mucosa')
 
-HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'C' & day =='D21') %>%
+HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'C' & day =='21') %>%
   ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + geom_point(size=3)+
   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
   ggtitle('Feces Day 21, RPS high/low & control, Cecal contents')
 
-p <- HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'I' & day =='D21') %>%
+HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'I' & day =='21') %>%
   ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + geom_point(size=3)+
   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
   ggtitle('Feces Day 21, RPS high/low & control, Ileal mucosa')
-
-
-
-ggplot2::ggplot_build(p)
-# ########### groups compared to their D0  #######
-# I think I'll cut this... 
-# T0s <- times[grep('D0', times$pairs),]
-# 
-# T0s$pairs <- gsub('X12b_', '', T0s$pairs)
-# T0s$pairs <- gsub('_F_', ' feces ', T0s$pairs)
-# 
-# #4DAF4A, #377EB8)
-# 
-# #377EB8
-# 
-# #E41A1C
-# 
-# 
-# 
-# T0s$tissue <- gsub('D[0-9]+ ([A-Za-z_]+) [A-Za-z]+ vs D[0-9]+ [A-Za-z_]+ ([A-Za-z]+)', '\\1', T0s$pairs)
-# T0s$treatment <- gsub('D[0-9]+ ([A-Za-z_]+) [A-Za-z]+ vs D[0-9]+ [A-Za-z_]+ ([A-Za-z]+)', '\\2', T0s$pairs)
-# 
-# T0s$day <- gsub('D[0-9]+ ([A-Za-z_]+) [A-Za-z]+ vs (D[0-9]+) [A-Za-z_]+ ([A-Za-z]+)', '\\2', T0s$pairs)
-# 
-# # what's this for??
-# T0s[T0s$day == "D0",]$day <- gsub('(D[0-9]+) ([A-Za-z_]+) [A-Za-z]+ vs (D[0-9]+) [A-Za-z_]+ ([A-Za-z]+)', '\\1', T0s[T0s$day == "D0",]$pairs)
-# 
-# T0s$day <- factor(gsub('D','',T0s$day), levels = c(2,7,14,21))
-# T0s$pairs
-# 
-# T0s$p.fdr <- round(p.adjust(T0s$p.value, 'fdr'),3)
-# T0s$p.fdr.lab <- ifelse(T0s$p.fdr <0.05, T0s$p.fdr, NA)
-# T0s$treatment <- factor(T0s$treatment, levels = c('Control', 'RPS', 'Acid', 'ZnCu', 'RCS', 'Bglu'))
-# 
-# 
-# # this seems different.... investigate
-# 
-# T0s %>% filter(tissue == 'feces') %>% ggplot(aes(x=day, y=F.Model, group=treatment, fill=treatment, color=treatment, label=p.fdr.lab)) +
-#   geom_line(size=1.52) + geom_point(shape=21) + scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
-#   geom_label(color='black') +
-#   scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple'))+ 
-#   ggtitle("Community differences compared to each group's Day 0 conformation", 
-#           subtitle = 'FDR corrected pvalues shown in boxes') + xlab('Day (vs Day 0)')
-# 
-
-
-
-
 
 
 
@@ -788,9 +859,12 @@ ggplot2::ggplot_build(p)
 
 
 ################################ RPS SPLIT #########################
+
+
+# NEED TO SET SHRINK TYPE CONSISTENTLY
 FS12b@sam_data$pignum
 FS12_RPS <- subset_samples(FS12b, treatment == 'RPS')
-FS12_RPS@sam_data$day <- factor(FS12_RPS@sam_data$day, levels = c('D0', 'D2','D7', 'D14', 'D21'))
+# FS12_RPS@sam_data$day <- factor(FS12_RPS@sam_data$day, levels = c('D0', 'D2','D7', 'D14', 'D21'))
 
 FS12_RPS@sam_data$shed <- ifelse(FS12_RPS@sam_data$pignum %in% c(373,321,181,392,97), 'low', 'high')
 FS12_RPS@sam_data$shed <- factor(FS12_RPS@sam_data$shed, levels = c('high', 'low'))
@@ -802,7 +876,29 @@ FS12_RPS@sam_data$set <- paste(FS12_RPS@sam_data$set, FS12_RPS@sam_data$shed, se
 # Keeping samples separate by day #
 
 FS12b.glom <- FS12_RPS
-FS12b.glom <- subset_samples(FS12b.glom, day =='D0' & tissue == 'F')
+
+#### FIX THIS ###
+highlow_DESEQ <- 
+  function(phyloseq, day, tissue, shrinktype, cookscutoff){
+  
+  FS12b.glom <- subset_samples(phyloseq, day == day & tissue == tissue)
+  FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
+  FS12.de <- phyloseq_to_deseq2(FS12b.glom, ~shed)
+  FS12.de <- DESeq(FS12.de, test = 'Wald', fitType = 'parametric')
+  tmpres <- results(FS12.de, name = 'shed_low_vs_high', cooksCutoff = cookscutoff)
+  tmpres <- lfcShrink(FS12.de, res=tmpres, coef = 'shed_low_vs_high', type = shrinktype)
+  tmpres$day <- day
+  tmpres$tissue <- tissue
+  tmpres$OTU <- rownames(tmpres)
+  tmpres <- as(tax_table(phyloseq), Class = 'matrix') %>% as_data_frame() %>%  right_join(tmpres)
+  
+  return(tmpres)
+}
+
+D0_highlow <- highlow_DESEQ(FS12_RPS, day = 0, tissue = 'F', shrinktype = 'apeglm', cookscutoff = TRUE)
+
+
+FS12b.glom <- subset_samples(FS12b.glom, day ==0 & tissue == 'F')
 
 FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
 
@@ -816,12 +912,12 @@ FS12.de <- DESeq(FS12.de, test = 'Wald', fitType = 'parametric')
 resultsNames(FS12.de)
 tmpres <- results(FS12.de, name = 'shed_low_vs_high', cooksCutoff = FALSE)
 tmpres <- lfcShrink(FS12.de, res=tmpres, coef = 'shed_low_vs_high', type = 'apeglm')
-tmpres[tmpres$padj < 0.1,]
+tmpres[tmpres$padj < 0.05,]
 
 
 D0_highlow <- Deseq.quickplot(DeSeq.object = FS12.de,
                               phyloseq.object = FS12b.glom, pvalue = .1, alpha = 0.1,
-                              name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'normal', cookscut = FALSE)
+                              name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'apeglm', cookscut = FALSE)
 
 ### D0 Q
 # 
@@ -841,8 +937,10 @@ D0_highlow <- Deseq.quickplot(DeSeq.object = FS12.de,
 # 
 
 ##### D2
+
+
 FS12b.glom <- FS12_RPS
-FS12b.glom <- subset_samples(FS12b.glom, day =='D2')
+FS12b.glom <- subset_samples(FS12b.glom, day == 2)
 
 FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
 
@@ -853,12 +951,12 @@ resultsNames(FS12.de)
 
 
 D2_highlow <- Deseq.quickplot(DeSeq.object = FS12.de,
-                             phyloseq.object = FS12b.glom, pvalue = .1, alpha = 0.1,
-                             name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'normal', cookscut = FALSE)
+                              phyloseq.object = FS12b.glom, pvalue = .1, alpha = 0.1,
+                              name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'apeglm', cookscut = FALSE)
 
 #### D7
 FS12b.glom <- FS12_RPS
-FS12b.glom <- subset_samples(FS12b.glom, day =='D7')
+FS12b.glom <- subset_samples(FS12b.glom, day ==7)
 
 FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
 
@@ -869,14 +967,14 @@ resultsNames(FS12.de)
 
 
 D7_highlow <- Deseq.quickplot(DeSeq.object = FS12.de,
-                             phyloseq.object = FS12b.glom, pvalue = .1, alpha = 0.1,
-                             name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'apeglm', cookscut = FALSE)
+                              phyloseq.object = FS12b.glom, pvalue = .1, alpha = 0.1,
+                              name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'apeglm', cookscut = FALSE)
 
 
 # D14 #
 
 FS12b.glom <- FS12_RPS
-FS12b.glom <- subset_samples(FS12b.glom, day =='D14')
+FS12b.glom <- subset_samples(FS12b.glom, day ==14)
 
 FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
 
@@ -888,12 +986,12 @@ resultsNames(FS12.de)
 
 D14_highlow <- Deseq.quickplot(DeSeq.object = FS12.de,
                                phyloseq.object = FS12b.glom, pvalue = .1, alpha = 0.1,
-                               name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'normal', cookscut = FALSE)
+                               name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'apeglm', cookscut = FALSE)
 
 ##### D21 F
 
 FS12b.glom <- FS12_RPS
-FS12b.glom <- subset_samples(FS12b.glom, day =='D21' & tissue == 'F')
+FS12b.glom <- subset_samples(FS12b.glom, day ==21 & tissue == 'F')
 
 FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
 
@@ -914,7 +1012,7 @@ D21F_highlow <- Deseq.quickplot(DeSeq.object = FS12.de,
 
 
 FS12b.glom <- FS12_RPS
-FS12b.glom <- subset_samples(FS12b.glom, day =='D21' & tissue == 'X')
+FS12b.glom <- subset_samples(FS12b.glom, day ==21 & tissue == 'X')
 
 FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
 
@@ -964,7 +1062,7 @@ resultsNames(FS12.de)
 
 D21I_highlow <- Deseq.quickplot(DeSeq.object = FS12.de,
                                 phyloseq.object = FS12b.glom, pvalue = .1, alpha = 0.1,
-                                name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'normal', cookscut = FALSE)
+                                name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'apeglm', cookscut = FALSE)
 
 
 
@@ -1085,116 +1183,13 @@ tax$OTU <- rownames(tax)
 
 
 
-#############################################
-# regular Differential abundance 
-
-
-# should make a function for this....
-# it would take timepoint, tissue, and return the sig diff OTUs in a dataframe
-# need to add tissue and timepoint to dataframe before return
-
-
-# unique(FS12b@sam_data$pignum)
-# 
-# FS12b@sam_data$treatment
-# DESeq
-
-# DESeq_difabund <- function(phyloseq, day, tissue, scientific = TRUE, shrink_type='normal', 
-#                            alpha=0.1, cooks_cut=FALSE, pAdjustMethod='BH'){
-#   
-#   # FS12b.glom <- tax_glom(FS12b, taxrank = 'Genus')
-#   FS12b.glom <- prune_samples(x = phyloseq, samples = phyloseq@sam_data$day == day & phyloseq@sam_data$tissue == tissue)
-#   FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
-#   FS12.de <- phyloseq_to_deseq2(FS12b.glom, ~treatment)
-#   FS12.de <- DESeq(FS12.de, test = 'Wald', fitType = 'parametric')
-#   
-#   finres <- list()
-#   resind <- 1
-#   for (i in 2:length(resultsNames(FS12.de))){
-#     print(resultsNames(FS12.de)[i])
-#     treat <- sub('treatment_(.*)_vs_Control','\\1',resultsNames(FS12.de)[i])
-#     comp <- sub('treatment_', '', resultsNames(FS12.de)[i])
-#     
-#     # i dont think these two strategies for results calc are compatible....
-#     res <- results(object = FS12.de, name = resultsNames(FS12.de)[i], alpha=alpha, cooksCutoff = cooks_cut, pAdjustMethod = pAdjustMethod)
-#     res <- lfcShrink(FS12.de, coef = resultsNames(FS12.de)[i], type = shrink_type)
-#     sigtab = res[which(res$padj < alpha), ]
-#     
-#     if (nrow(sigtab) != 0){
-#       # browser()
-#       sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(FS12b.glom)[rownames(sigtab), ], "matrix"))
-#       sigtab$newp <- format(round(sigtab$padj, digits = 3), scientific = scientific)
-#       sigtab$Treatment <- ifelse(sigtab$log2FoldChange >=0, treat, paste('down',treat, sep = '_'))
-#       sigtab$OTU <- rownames(sigtab)
-#       sigtab$tissue <- tissue
-#       sigtab$day <- day
-#       sigtab$comp <- comp
-#       finres[[resind]] <- sigtab
-#       
-#       resind <- resind + 1
-#     }
-#     
-#     
-#     
-#   }
-#   
-#   finres <- bind_rows(finres)
-#   return(finres)
-#   
-# }
-
-# something is afoot......
-# apparently I removed the Q tissues.....
-
-
-
-tocont <- list(DESeq_difabund(phyloseq = FS12b, day = 'D0', tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
-               # DESeq_difabund(phyloseq = FS12b, day = 'D0', tissue = 'Q', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
-               DESeq_difabund(phyloseq = FS12b, day = 'D2', tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
-               DESeq_difabund(phyloseq = FS12b, day = 'D7', tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
-               DESeq_difabund(phyloseq = FS12b, day = 'D14', tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
-               DESeq_difabund(phyloseq = FS12b, day = 'D21', tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
-               DESeq_difabund(phyloseq = FS12b, day = 'D21', tissue = 'C', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
-               DESeq_difabund(phyloseq = FS12b, day = 'D21', tissue = 'X', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
-               DESeq_difabund(phyloseq = FS12b, day = 'D21', tissue = 'I', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'))
-
-
-tocont <- bind_rows(tocont)
-
-tocontf <- tocont[abs(tocont$log2FoldChange) > .75,]
-
-tocontf %>% ggplot(aes(x=OTU, y=log2FoldChange, fill=Treatment)) + 
-  geom_col(color='black') + coord_flip() + geom_hline(yintercept = 20, color='red', size=3)
-
-
-#### ON TO SOMETHIGN HERE ####
-# some variation of this figure for  dif ab.
-# maybe do one panel for fecal difabund
-# one panel for tissue difabund
-tocontf %>% ggplot(aes(x=Genus, y=log2FoldChange, color=Treatment, shape=tissue)) + 
-  geom_point() + coord_flip() + geom_hline(yintercept = 0, color='black', size=1) +
-  facet_wrap(~day, scales = 'free')
-
-
-###
-tocontf %>% filter(tissue == 'F') %>% ggplot(aes(x=Genus, y=log2FoldChange, color=Treatment)) + 
-  geom_point() + coord_flip() + geom_hline(yintercept = 0, color='black', size=1) +
-  facet_wrap(~day, scales = 'free' ,ncol = 5)
+#### END HIGHLOW INSERT
 
 
 
 
 
 
-biguns <- tocontf %>% group_by(OTU) %>% summarise(tot=sum(log2FoldChange)) %>% filter(tot >20) %>% select(OTU) %>% unlist()
-
-tocont %>% filter(OTU %in% biguns) %>% select(OTU,Genus) %>% unique()
-
-tocontf %>% group_by(OTU, Treatment) %>% tally() %>% filter(n>2) %>% as.data.frame()
-
-
-tocontf %>% group_by(comp) %>% tally() %>% as.data.frame() %>%
-  ggplot(aes(x=comp, y=n)) + geom_col() + ggtitle('number of differentially abundant OTUs over the entire experiment')
 
 
 #### Ok that wasnt so bad.
