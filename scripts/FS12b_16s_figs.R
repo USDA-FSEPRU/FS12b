@@ -875,13 +875,13 @@ FS12_RPS@sam_data$set <- paste(FS12_RPS@sam_data$set, FS12_RPS@sam_data$shed, se
 
 # Keeping samples separate by day #
 
-FS12b.glom <- FS12_RPS
-
-#### FIX THIS ###
 highlow_DESEQ <- 
   function(phyloseq, day, tissue, shrinktype, cookscutoff){
-  
-  FS12b.glom <- subset_samples(phyloseq, day == day & tissue == tissue)
+  FS12b.glom <-
+    prune_samples(x = phyloseq,
+                  samples = phyloseq@sam_data$day == day &
+                  phyloseq@sam_data$tissue == tissue)
+    
   FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
   FS12.de <- phyloseq_to_deseq2(FS12b.glom, ~shed)
   FS12.de <- DESeq(FS12.de, test = 'Wald', fitType = 'parametric')
@@ -890,208 +890,31 @@ highlow_DESEQ <-
   tmpres$day <- day
   tmpres$tissue <- tissue
   tmpres$OTU <- rownames(tmpres)
-  tmpres <- as(tax_table(phyloseq), Class = 'matrix') %>% as_data_frame() %>%  right_join(tmpres)
+  
+  tmpres = cbind(as(tmpres, "data.frame"), as(tax_table(FS12b.glom)[rownames(tmpres),], "matrix"))
+  
+  # tmpres <- as(tax_table(phyloseq), Class = 'matrix') %>% as_data_frame() %>%  right_join(tmpres)
   
   return(tmpres)
 }
 
-D0_highlow <- highlow_DESEQ(FS12_RPS, day = 0, tissue = 'F', shrinktype = 'apeglm', cookscutoff = TRUE)
-
-
-FS12b.glom <- subset_samples(FS12b.glom, day ==0 & tissue == 'F')
-
-FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
-
-FS12.de <- phyloseq_to_deseq2(FS12b.glom, ~shed)
-
-FS12.de <- DESeq(FS12.de, test = 'Wald', fitType = 'parametric')
-
-# when is the resultsNames not returning what I expect now?
-# shed_low_vs_high is what i expect but now 'shed1' is what is returned...
-# ok now its fine, must have ran some code twice?
-resultsNames(FS12.de)
-tmpres <- results(FS12.de, name = 'shed_low_vs_high', cooksCutoff = FALSE)
-tmpres <- lfcShrink(FS12.de, res=tmpres, coef = 'shed_low_vs_high', type = 'apeglm')
-tmpres[tmpres$padj < 0.05,]
-
-
-D0_highlow <- Deseq.quickplot(DeSeq.object = FS12.de,
-                              phyloseq.object = FS12b.glom, pvalue = .1, alpha = 0.1,
-                              name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'apeglm', cookscut = FALSE)
-
-### D0 Q
-# 
-# FS12b.glom <- FS12_RPS
-# FS12b.glom <- subset_samples(FS12b.glom, day =='D0' & tissue == 'Q')
-# 
-# FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
-# 
-# FS12.de <- phyloseq_to_deseq2(FS12b.glom, ~shed)
-# library(DESeq2)
-# FS12.de <- DESeq(FS12.de, test = 'Wald', fitType = 'parametric')
-# resultsNames(FS12.de)
-# 
-# D0_Q_highlow <- Deseq.quickplot(DeSeq.object = FS12.de,
-#                                 phyloseq.object = FS12b.glom, pvalue = .05, alpha = 0.05,
-#                                 name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'normal', cookscut = FALSE)
-# 
-
-##### D2
-
-
-FS12b.glom <- FS12_RPS
-FS12b.glom <- subset_samples(FS12b.glom, day == 2)
-
-FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
-
-FS12.de <- phyloseq_to_deseq2(FS12b.glom, ~shed)
-
-FS12.de <- DESeq(FS12.de, test = 'Wald', fitType = 'parametric')
-resultsNames(FS12.de)
-
-
-D2_highlow <- Deseq.quickplot(DeSeq.object = FS12.de,
-                              phyloseq.object = FS12b.glom, pvalue = .1, alpha = 0.1,
-                              name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'apeglm', cookscut = FALSE)
-
-#### D7
-FS12b.glom <- FS12_RPS
-FS12b.glom <- subset_samples(FS12b.glom, day ==7)
-
-FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
-
-FS12.de <- phyloseq_to_deseq2(FS12b.glom, ~shed)
-
-FS12.de <- DESeq(FS12.de, test = 'Wald', fitType = 'parametric')
-resultsNames(FS12.de)
-
-
-D7_highlow <- Deseq.quickplot(DeSeq.object = FS12.de,
-                              phyloseq.object = FS12b.glom, pvalue = .1, alpha = 0.1,
-                              name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'apeglm', cookscut = FALSE)
-
-
-# D14 #
-
-FS12b.glom <- FS12_RPS
-FS12b.glom <- subset_samples(FS12b.glom, day ==14)
-
-FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
-
-FS12.de <- phyloseq_to_deseq2(FS12b.glom, ~shed)
-
-FS12.de <- DESeq(FS12.de, test = 'Wald', fitType = 'parametric')
-resultsNames(FS12.de)
-
-
-D14_highlow <- Deseq.quickplot(DeSeq.object = FS12.de,
-                               phyloseq.object = FS12b.glom, pvalue = .1, alpha = 0.1,
-                               name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'apeglm', cookscut = FALSE)
-
-##### D21 F
-
-FS12b.glom <- FS12_RPS
-FS12b.glom <- subset_samples(FS12b.glom, day ==21 & tissue == 'F')
-
-FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
-
-FS12.de <- phyloseq_to_deseq2(FS12b.glom, ~shed)
-
-FS12.de <- DESeq(FS12.de, test = 'Wald', fitType = 'parametric')
-resultsNames(FS12.de)
-
-
-D21F_highlow <- Deseq.quickplot(DeSeq.object = FS12.de,
-                                phyloseq.object = FS12b.glom, pvalue = .1, alpha = 0.1,
-                                name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'apeglm', cookscut = FALSE)
-
-
-
-#### Tissue X
-
-
-
-FS12b.glom <- FS12_RPS
-FS12b.glom <- subset_samples(FS12b.glom, day ==21 & tissue == 'X')
-
-FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
-
-FS12.de <- phyloseq_to_deseq2(FS12b.glom, ~shed)
-
-FS12.de <- DESeq(FS12.de, test = 'Wald', fitType = 'parametric')
-resultsNames(FS12.de)
-
-
-D21X_highlow <-Deseq.quickplot(DeSeq.object = FS12.de,
-                               phyloseq.object = FS12b.glom, pvalue = .1, alpha = 0.1,
-                               name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'apeglm', cookscut = FALSE)
-
-
-
-##### tissue C
-
-
-
-FS12b.glom <- FS12_RPS
-FS12b.glom <- subset_samples(FS12b.glom, day =='D21' & tissue == 'C')
-
-FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
-
-FS12.de <- phyloseq_to_deseq2(FS12b.glom, ~shed)
-
-FS12.de <- DESeq(FS12.de, test = 'Wald', fitType = 'parametric')
-resultsNames(FS12.de)
-
-
-D21C_highlow <-Deseq.quickplot(DeSeq.object = FS12.de,
-                               phyloseq.object = FS12b.glom, pvalue = .1, alpha = 0.1,
-                               name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'apeglm', cookscut = FALSE)
-
-##### tissue I
-
-FS12b.glom <- FS12_RPS
-FS12b.glom <- subset_samples(FS12b.glom, day =='D21' & tissue == 'I')
-
-FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
-
-FS12.de <- phyloseq_to_deseq2(FS12b.glom, ~shed)
-
-FS12.de <- DESeq(FS12.de, test = 'Wald', fitType = 'parametric')
-resultsNames(FS12.de)
-
-
-D21I_highlow <- Deseq.quickplot(DeSeq.object = FS12.de,
-                                phyloseq.object = FS12b.glom, pvalue = .1, alpha = 0.1,
-                                name = 'shed_low_vs_high' ,taxlabel = 'Genus', shrink_type = 'apeglm', cookscut = FALSE)
-
-
-
-
-
-#
-D0_highlow[[2]]$set <- 'D0_feces'
-D2_highlow[[2]]$set <- 'D2_feces'
-D7_highlow[[2]]$set <- 'D7_feces'
-D14_highlow[[2]]$set <- 'D14_feces'
-D21F_highlow[[2]]$set <- 'D21_feces'
-D21C_highlow[[2]]$set <- 'D21_cecal_content'
-D21X_highlow[[2]]$set <- 'D21_cecal_mucosa'
-D21I_highlow[[2]]$set <- 'D21_ileal_mucosa'
-#
-
-class(D0_highlow[[2]])
-
-
-RPS_split_master <- bind_rows(list(D0_highlow[[2]],
-                                   D2_highlow[[2]],
-                                   D7_highlow[[2]],
-                                   D14_highlow[[2]],
-                                   D21F_highlow[[2]],
-                                   D21C_highlow[[2]],
-                                   D21X_highlow[[2]], 
-                                   D21I_highlow[[2]]))
-
-
+D0_highlow <- highlow_DESEQ(FS12_RPS, day = 0, tissue = 'F', shrinktype = 'apeglm', cookscutoff = FALSE)
+
+RPS_split_master <- 
+  bind_rows(
+  highlow_DESEQ(FS12_RPS, day = 0, tissue = 'F', shrinktype = 'apeglm', cookscutoff = FALSE),
+  highlow_DESEQ(FS12_RPS, day = 2, tissue = 'F', shrinktype = 'apeglm', cookscutoff = FALSE),
+  highlow_DESEQ(FS12_RPS, day = 7, tissue = 'F', shrinktype = 'apeglm', cookscutoff = FALSE),
+  highlow_DESEQ(FS12_RPS, day = 14, tissue = 'F', shrinktype = 'apeglm', cookscutoff = FALSE),
+  highlow_DESEQ(FS12_RPS, day = 21, tissue = 'F', shrinktype = 'apeglm', cookscutoff = FALSE),
+  highlow_DESEQ(FS12_RPS, day = 21, tissue = 'X', shrinktype = 'apeglm', cookscutoff = FALSE),
+  highlow_DESEQ(FS12_RPS, day = 21, tissue = 'C', shrinktype = 'apeglm', cookscutoff = FALSE),
+  highlow_DESEQ(FS12_RPS, day = 21, tissue = 'I', shrinktype = 'apeglm', cookscutoff = FALSE))
+
+
+RPS_split_master <- RPS_split_master %>% filter(padj < 0.1 & log2FoldChange > 0.5)
+
+#  NEED TO DO WORK HERE #
 
 RPS_split_master$imp <- ifelse(RPS_split_master$padj <= 0.05, TRUE, FALSE)
 
