@@ -1008,7 +1008,21 @@ tax$OTU <- rownames(tax)
 
 #### END HIGHLOW INSERT
 
+### STACKED BARS FOR RPS ###
 
+RPS_bars <- FS12_RPS %>% transform_sample_counts(function(x) x/sum(x)) %>% psmelt()
+
+
+RPS_bars %>%
+  mutate(Class_lump= fct_lump_n(Genus, n = 9, w=Abundance)) %>% 
+  mutate(pig_fact=fct_reorder(.f = as.factor(pignum), .x = AULC)) %>% 
+  ggplot(aes(x=pig_fact, y=Abundance, fill=Class_lump)) +
+  geom_col(color=alpha(colour = 'black', alpha = .5)) + facet_wrap(~day+tissue) + scale_fill_brewer(palette = 'Set1')
+
+
+
+# GPr  = transform_sample_counts(GlobalPatterns, function(x) x / sum(x) )
+###
 
 
 
