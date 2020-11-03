@@ -708,7 +708,7 @@ tocontf %>%
 
 ##SHOULD ORDINATE THIS TOO##
 
-FS12b_HL <- FS12b %>% subset_samples(treatment %in% c('Control', 'RPS') & tissue =='F')
+# FS12b_HL <- FS12b %>% subset_samples(treatment %in% c('Control', 'RPS') & tissue =='F')
 FS12b_HL <- FS12b %>% subset_samples(treatment %in% c('Control', 'RPS'))
 
 # FS12b_HL %>% subset_samples(treatment == 'RPS') %>% sample_data() %>% select(pignum)
@@ -890,6 +890,7 @@ highlow_DESEQ <-
   tmpres$day <- day
   tmpres$tissue <- tissue
   tmpres$OTU <- rownames(tmpres)
+  tmpres$Treatment <- ifelse(tmpres$log2FoldChange > 0 , 'low shed', 'high shed')
   
   tmpres = cbind(as(tmpres, "data.frame"), as(tax_table(FS12b.glom)[rownames(tmpres),], "matrix"))
   
@@ -898,8 +899,8 @@ highlow_DESEQ <-
   return(tmpres)
 }
 
-D0_highlow <- highlow_DESEQ(FS12_RPS, day = 0, tissue = 'F', shrinktype = 'apeglm', cookscutoff = FALSE)
-
+# D0_highlow <- highlow_DESEQ(FS12_RPS, day = 0, tissue = 'F', shrinktype = 'apeglm', cookscutoff = FALSE)
+# 
 RPS_split_master <- 
   bind_rows(
   highlow_DESEQ(FS12_RPS, day = 0, tissue = 'F', shrinktype = 'apeglm', cookscutoff = FALSE),
@@ -911,63 +912,72 @@ RPS_split_master <-
   highlow_DESEQ(FS12_RPS, day = 21, tissue = 'C', shrinktype = 'apeglm', cookscutoff = FALSE),
   highlow_DESEQ(FS12_RPS, day = 21, tissue = 'I', shrinktype = 'apeglm', cookscutoff = FALSE))
 
+library(IHW)
+ihwRes <- IHW::ihw(pvalue ~ baseMean,  data = RPS_split_master, alpha = 0.1)
 
-RPS_split_master <- RPS_split_master %>% filter(padj < 0.1 & log2FoldChange > 0.5)
+
+RPS_split_master$IHW_pval <- IHW::adj_pvalues(ihwRes)
+
+RPS_split_master <- RPS_split_master %>% filter(IHW_pval < 0.1 & abs(log2FoldChange) > 0.5)
 
 #  NEED TO DO WORK HERE #
 
-RPS_split_master$imp <- ifelse(RPS_split_master$padj <= 0.05, TRUE, FALSE)
-
-RPS_split_master$set <- factor(RPS_split_master$set, levels = c('D0_feces','D2_feces' ,'D7_feces', 'D14_feces', 'D21_feces', 'D21_cecal_content', 'D21_cecal_mucosa', 'D21_ileal_mucosa'))
+RPS_split_master$imp <- ifelse(RPS_split_master$IHW_pval <= 0.05, TRUE, FALSE)
+RPS_split_master$set <- paste(RPS_split_master$day, RPS_split_master$tissue, sep = '_')
+RPS_split_master$set <- factor(RPS_split_master$set, levels = c('0_F','2_F' ,'7_F', '14_F', '21_F', '21_C', '21_X', '21_I'))
+RPS_split_master$newp <- signif(RPS_split_master$IHW_pval, digits = 2)
 RPS_split_master <- RPS_split_master %>% mutate(newp2=paste0('p=', newp))
 # devtools::install_github('jtrachsel/ggscinames')
 library(ggscinames)
 library(grid)
 
-RPS_split_master %>% filter(set %in% c('D0_feces' ,'D7_feces', 'D14_feces', 'D21_feces')) %>%
+# IHW has an alpha thng that messes up ggplot2
+detach("package:IHW", unload=TRUE)
+
+RPS_split_master %>% #filter(set %in% c('D0_feces' ,'D7_feces', 'D14_feces', 'D21_feces')) %>%
   ggplot(aes(x=reorder(OTU, log2FoldChange), y=log2FoldChange, fill=Treatment)) +
   geom_bar(stat='identity') + 
   geom_text_sciname(aes(x=OTU, y=0, sci = Genus, nonsci=newp2, important=imp), size=3) + coord_flip() +
   facet_wrap(~set, ncol = 1, scales = 'free_y') + scale_fill_brewer(palette = 'Set1')
 
-RPS_split_master %>% filter(set %in% c('D21_feces', 'D21_cecal_content', 'D21_cecal_mucosa')) %>%
-  ggplot(aes(x=reorder(OTU, log2FoldChange), y=log2FoldChange, fill=Treatment)) +
-  geom_bar(stat='identity') + 
-  geom_text_sciname(aes(x=OTU, y=0, sci = Genus, nonsci=newp2, important=imp), size=3) + coord_flip() +
-  facet_wrap(~set, ncol = 1, scales = 'free_y') + scale_fill_brewer(palette = 'Set1') + xlab('') + labs(fill='Shedding')
-
-RPS_split_master %>% filter(set %in% c('D21_ileal_mucosa')) %>%
-  ggplot(aes(x=reorder(OTU, log2FoldChange), y=log2FoldChange, fill=Treatment)) +
-  geom_bar(stat='identity') + 
-  geom_text_sciname(aes(x=OTU, y=0, sci = Genus, nonsci=newp2, important=imp), size=3) + coord_flip() +
-  facet_wrap(~set, ncol = 1, scales = 'free_y') + scale_fill_brewer(palette = 'Set1') + xlab('') + labs(fill='Shedding')
+# RPS_split_master %>% filter(set %in% c('D21_feces', 'D21_cecal_content', 'D21_cecal_mucosa')) %>%
+#   ggplot(aes(x=reorder(OTU, log2FoldChange), y=log2FoldChange, fill=Treatment)) +
+#   geom_bar(stat='identity') + 
+#   geom_text_sciname(aes(x=OTU, y=0, sci = Genus, nonsci=newp2, important=imp), size=3) + coord_flip() +
+#   facet_wrap(~set, ncol = 1, scales = 'free_y') + scale_fill_brewer(palette = 'Set1') + xlab('') + labs(fill='Shedding')
+# 
+# RPS_split_master %>% filter(set %in% c('D21_ileal_mucosa')) %>%
+#   ggplot(aes(x=reorder(OTU, log2FoldChange), y=log2FoldChange, fill=Treatment)) +
+#   geom_bar(stat='identity') + 
+#   geom_text_sciname(aes(x=OTU, y=0, sci = Genus, nonsci=newp2, important=imp), size=3) + coord_flip() +
+#   facet_wrap(~set, ncol = 1, scales = 'free_y') + scale_fill_brewer(palette = 'Set1') + xlab('') + labs(fill='Shedding')
 
 
 
 
 library(cowplot)
 
-p <- RPS_split_master %>%
-  group_by(OTU, Treatment) %>%
-  filter(padj <= 0.05) %>%  tally() %>%
-  ggplot(aes(x=OTU, y=n, fill=Treatment)) + geom_col() +
-  scale_fill_brewer(palette = 'Pastel1') + ylab('occurences') + ggtitle('Number of times OTUs are significantly enriched (p<0.05)\n in either shedding phenotype') + 
-  theme(axis.text.x = element_text(angle = 90, vjust = .4)) + xlab('')
+# p <- RPS_split_master %>%
+#   group_by(OTU, Treatment) %>%
+#   filter(padj <= 0.05) %>%  tally() %>%
+#   ggplot(aes(x=OTU, y=n, fill=Treatment)) + geom_col() +
+#   scale_fill_brewer(palette = 'Pastel1') + ylab('occurences') + ggtitle('Number of times OTUs are significantly enriched (p<0.05)\n in either shedding phenotype') + 
+#   theme(axis.text.x = element_text(angle = 90, vjust = .4)) + xlab('')
+# 
+# 
+# RPS_split_master %>%
+#   group_by(OTU, Treatment) %>%
+#   tally() %>%
+#   ggplot(aes(x=OTU, y=n, fill=Treatment)) + geom_col() +
+#   scale_fill_brewer(palette = 'Pastel1') + ylab('occurences') + ggtitle('Number of times OTUs are significantly enriched (p<0.05)\n in either shedding phenotype') + 
+#   theme(axis.text.x = element_text(angle = 90, vjust = .4)) + xlab('')
 
 
-RPS_split_master %>%
-  group_by(OTU, Treatment) %>%
-  tally() %>%
-  ggplot(aes(x=OTU, y=n, fill=Treatment)) + geom_col() +
-  scale_fill_brewer(palette = 'Pastel1') + ylab('occurences') + ggtitle('Number of times OTUs are significantly enriched (p<0.05)\n in either shedding phenotype') + 
-  theme(axis.text.x = element_text(angle = 90, vjust = .4)) + xlab('')
-
-
-ggplot2::ggplot_build(p)
+# ggplot2::ggplot_build(p)
 
 
 
-c("#E41A1C", "#FBB4AE", "#377EB8", "#B3CDE3")
+# c("#E41A1C", "#FBB4AE", "#377EB8", "#B3CDE3")
 
 
 
@@ -985,24 +995,24 @@ RPS_split_master <- RPS_split_master %>% mutate(group=factor(paste(p2, Treatment
                                                                                             "p < 0.1 low")))
 
 
-RPS_split_master %>% group_by(OTU, group) %>% tally() %>% 
-  ggplot(aes(x=OTU, y=n, fill=group)) + geom_col(color='black') +
-  scale_fill_manual(values = c("#E41A1C", "#FBB4AE", "#377EB8", "#B3CDE3")) +
-  ylab('occurences') +
-  ggtitle('Number of times OTUs are enriched \n in either RPS shedding phenotype') + 
-  theme(axis.text.x = element_text(angle = 90, vjust = .4)) + xlab('') + coord_flip()
+# RPS_split_master %>% group_by(OTU, group) %>% tally() %>% 
+#   ggplot(aes(x=OTU, y=n, fill=group)) + geom_col(color='black') +
+#   scale_fill_manual(values = c("#E41A1C", "#FBB4AE", "#377EB8", "#B3CDE3")) +
+#   ylab('occurences') +
+#   ggtitle('Number of times OTUs are enriched \n in either RPS shedding phenotype') + 
+#   theme(axis.text.x = element_text(angle = 90, vjust = .4)) + xlab('') + coord_flip()
 
 
-
-int_OTUs <- RPS_split_master %>% group_by(OTU, group) %>% tally() %>% filter(n>1) %>% select(OTU) %>% unlist(use.names = FALSE)
-
-# write_csv(RPS_split_ints, 'RPS_split_int_OTUs.csv')
-RPS_split_ints <- RPS_split_master %>% filter(OTU %in% int_OTUs) %>% 
-  select(OTU, Treatment, Genus) %>% unique()
-
-tax <- as.data.frame(FS12b.glom@tax_table)
-tax$OTU <- rownames(tax)
-
+# 
+# int_OTUs <- RPS_split_master %>% group_by(OTU, group) %>% tally() %>% filter(n>1) %>% select(OTU) %>% unlist(use.names = FALSE)
+# 
+# # write_csv(RPS_split_ints, 'RPS_split_int_OTUs.csv')
+# RPS_split_ints <- RPS_split_master %>% filter(OTU %in% int_OTUs) %>% 
+#   select(OTU, Treatment, Genus) %>% unique()
+# 
+# tax <- as.data.frame(FS12b.glom@tax_table)
+# tax$OTU <- rownames(tax)
+# 
 
 
 
@@ -1040,8 +1050,9 @@ formula(paste('~', 'log_sal'))
 # FS12b@sam_data$day %in% c(day) & FS12b@sam_data$tissue == 'F'
 ##### SHOULD REALLY LOOK INTO INTERACTION WITH TREATMENT HERE!!!!!!!! 
 ### OR SUBSET EACH TREATMENT
+
 blarg <- function(phyloseq_obj, day, tissue, covariate, shrink_type='apeglm'){
-  form <- formula(paste('~', covariate))
+  form <- formula(paste('~', covariate, '+ treatment'))
   # print(form)
   FS12b.glom <- phyloseq_obj %>% prune_samples(samples = phyloseq_obj@sam_data$day %in% c(day) & phyloseq_obj@sam_data$tissue == tissue)
   FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
@@ -1052,19 +1063,20 @@ blarg <- function(phyloseq_obj, day, tissue, covariate, shrink_type='apeglm'){
   FS12b.de <- DESeq(FS12b.de, test = 'Wald', fitType = 'parametric')
   
   # these are not both possible.  Right now only lfcshrink is doing anytihng
-  res <- results(FS12b.de, cooksCutoff = FALSE, name = covariate)
-  res <- lfcShrink(FS12b.de, coef = covariate, type = shrink_type)
-  
+  # res <- results(FS12b.de, cooksCutoff = FALSE, name = covariate)
+  sigtab <- lfcShrink(FS12b.de, coef = covariate, type = shrink_type)
+  # browser()
   # resultsNames(FS12b.de)
   
-  res <- res[!is.na(res$padj),]
-  res <- res[res$padj < 0.1,]
-  sigtab <- res[abs(res$log2FoldChange) > .1 ,]
+  
+  # res <- res[!is.na(res$padj),]
+  # res <- res[res$padj < 0.1,]
+  # sigtab <- res[abs(res$log2FoldChange) > .1 ,]
   sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(phyloseq_obj)[rownames(sigtab), ], "matrix"))
   sigtab$newp <- format(round(sigtab$padj, digits = 3), scientific = TRUE)
   # sigtab$Treatment <- ifelse(sigtab$log2FoldChange >=0, treat, paste('down',treat, sep = '_'))
   sigtab$OTU <- rownames(sigtab)
-  sigtab[[covariate]] <- ifelse(sigtab$log2FoldChange >0 , 'increased', 'decreased')
+  sigtab[[covariate]] <- ifelse(sigtab$log2FoldChange > 0 , 'increased', 'decreased')
   # sigtab$salm <- ifelse(sigtab$log2FoldChange >0 , 'increased', 'decreased')
   sigtab <- sigtab[order(sigtab$log2FoldChange),]
   sigtab$OTU <- factor(sigtab$OTU, levels = sigtab$OTU)
@@ -1072,7 +1084,9 @@ blarg <- function(phyloseq_obj, day, tissue, covariate, shrink_type='apeglm'){
   sigtab$tissue <- tissue
   
   
-  p <- sigtab %>% ggplot(aes_string(x='OTU', y='log2FoldChange', fill=covariate)) +
+  
+  p <- sigtab %>% filter(padj < 0.05) %>% 
+    ggplot(aes_string(x='OTU', y='log2FoldChange', fill=covariate)) +
     geom_col(color='black') + coord_flip() + geom_text(aes(label=Genus, y=0))
   
   return(list(p, sigtab))
@@ -1080,7 +1094,7 @@ blarg <- function(phyloseq_obj, day, tissue, covariate, shrink_type='apeglm'){
   
 }
 
-blarg(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'log_sal')
+blarg(phyloseq_obj = FS12b, day = '2', tissue = 'F', covariate = 'log_sal')
 
 # nnnn[['test']] <- 'TEST'
 # blarg()
@@ -1098,11 +1112,11 @@ blarg(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'log_sal')
 
 
 
-global_sal_OTUs <- list(blarg(phyloseq_obj = FS12b, day = 'D2', tissue = 'F', covariate = 'log_sal')[[2]], 
-                        blarg(phyloseq_obj = FS12b, day = 'D7', tissue = 'F', covariate = 'log_sal')[[2]],
-                        blarg(phyloseq_obj = FS12b, day = 'D14', tissue = 'F', covariate = 'log_sal')[[2]],
-                        blarg(phyloseq_obj = FS12b, day = 'D21', tissue = 'F', covariate = 'log_sal')[[2]],
-                        blarg(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'log_sal')[[2]])
+global_sal_OTUs <- list(blarg(phyloseq_obj = FS12b, day = '2', tissue = 'F', covariate = 'log_sal')[[2]], 
+                        blarg(phyloseq_obj = FS12b, day = '7', tissue = 'F', covariate = 'log_sal')[[2]],
+                        blarg(phyloseq_obj = FS12b, day = '14', tissue = 'F', covariate = 'log_sal')[[2]],
+                        blarg(phyloseq_obj = FS12b, day = '21', tissue = 'F', covariate = 'log_sal')[[2]],
+                        blarg(phyloseq_obj = FS12b, day = '21', tissue = 'C', covariate = 'log_sal')[[2]])
 
 global_sal_OTUs <- bind_rows(global_sal_OTUs)
 
