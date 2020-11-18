@@ -586,7 +586,9 @@ FIG3A <-
   # ggtitle('Community differences compared to control group over time', subtitle = )
 FIG3A
 
-to_conts
+to_conts %>% write_tsv('./output/PERMANOVAs_vs_control.tsv')
+
+### WRITE OUT TOCONTS ###
 # shan will be fig 3B
 
 # tmp_adon <- same_day_tissue %>% filter(day %in% c('D0', 'D23'))
@@ -651,6 +653,8 @@ tocontf %>% ggplot(aes(x=OTU, y=log2FoldChange, fill=Treatment)) +
  geom_point(shape=21) + coord_flip() 
 
 ### WRITE OUT TOCONTF ###
+tocontf %>% write_tsv('./output/Control_vs_All_DESeq.tsv')
+
 #tocontf %>% write_tsv('./figdat/diffabund_OTUS.tsv')
 
 #### ON TO SOMETHIGN HERE ####
@@ -798,6 +802,8 @@ to_conts %>% filter(!(tissue %in% c('feces', 'tet'))) %>%
   ggtitle('PERMANOVA F.stat. : Difference compared to controls across tissues',
           subtitle = 'Higher values represent a greater difference compared to control')  + scale_fill_brewer(palette = 'Set1')
 
+
+to_conts %>% write_tsv('./output/PERMANOVAs_highlow_vs_control.tsv')
 
 
 ###
