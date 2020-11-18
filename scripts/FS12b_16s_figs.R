@@ -389,7 +389,6 @@ shan_fecal_tests %>% filter(grepl('Control', contrast)) %>%
   filter(adj.p.value < 0.05)
 
 # INCLUDE CONFIDENCE INTERVAL FIG???? #
-
 ###
 
 
@@ -912,13 +911,13 @@ RPS_split_master <-
   highlow_DESEQ(FS12_RPS, day = 21, tissue = 'C', shrinktype = 'apeglm', cookscutoff = FALSE),
   highlow_DESEQ(FS12_RPS, day = 21, tissue = 'I', shrinktype = 'apeglm', cookscutoff = FALSE))
 
-library(IHW)
+# library(IHW)
 ihwRes <- IHW::ihw(pvalue ~ baseMean,  data = RPS_split_master, alpha = 0.1)
 
 
 RPS_split_master$IHW_pval <- IHW::adj_pvalues(ihwRes)
 
-RPS_split_master <- RPS_split_master %>% filter(IHW_pval < 0.1 & abs(log2FoldChange) > 0.5)
+RPS_split_master <- RPS_split_master %>% filter(IHW_pval < 0.1 & abs(log2FoldChange) > 0.25)
 
 #  NEED TO DO WORK HERE #
 
@@ -932,7 +931,7 @@ library(ggscinames)
 library(grid)
 
 # IHW has an alpha thng that messes up ggplot2
-detach("package:IHW", unload=TRUE)
+# detach("package:IHW", unload=TRUE)
 
 RPS_split_master %>% #filter(set %in% c('D0_feces' ,'D7_feces', 'D14_feces', 'D21_feces')) %>%
   ggplot(aes(x=reorder(OTU, log2FoldChange), y=log2FoldChange, fill=Treatment)) +
@@ -1020,6 +1019,8 @@ RPS_split_master <- RPS_split_master %>% mutate(group=factor(paste(p2, Treatment
 
 ### STACKED BARS FOR RPS ###
 
+FS12_RPS@sam_data$pignum[order(FS12_RPS@sam_data$AULC)]
+
 RPS_bars <- FS12_RPS %>% transform_sample_counts(function(x) x/sum(x)) %>% psmelt()
 
 
@@ -1027,7 +1028,8 @@ RPS_bars %>%
   mutate(Class_lump= fct_lump_n(Genus, n = 9, w=Abundance)) %>% 
   mutate(pig_fact=fct_reorder(.f = as.factor(pignum), .x = AULC)) %>% 
   ggplot(aes(x=pig_fact, y=Abundance, fill=Class_lump)) +
-  geom_col(color=alpha(colour = 'black', alpha = .5)) + facet_wrap(~day+tissue) + scale_fill_brewer(palette = 'Set1')
+  geom_col(color=alpha(colour = 'black', alpha = .5)) + facet_wrap(~day+tissue) +
+  scale_fill_brewer(palette = 'Set1')
 
 
 
@@ -1036,14 +1038,10 @@ RPS_bars %>%
 
 
 
+### Salmonella linear relationships
 
 
 
-#### Ok that wasnt so bad.
-# Now, which OTUs changed at Salmonella infection?
-# I think I need to add sum_sal info at beginning....
-
-# c(c('D0', 'D2'))
 
 #### log_sal as continuous covariate #### 
 formula(paste('~', 'log_sal'))
@@ -1112,14 +1110,12 @@ blarg(phyloseq_obj = FS12b, day = '2', tissue = 'F', covariate = 'log_sal')
 
 
 
-global_sal_OTUs <- list(blarg(phyloseq_obj = FS12b, day = '2', tissue = 'F', covariate = 'log_sal')[[2]], 
-                        blarg(phyloseq_obj = FS12b, day = '7', tissue = 'F', covariate = 'log_sal')[[2]],
-                        blarg(phyloseq_obj = FS12b, day = '14', tissue = 'F', covariate = 'log_sal')[[2]],
-                        blarg(phyloseq_obj = FS12b, day = '21', tissue = 'F', covariate = 'log_sal')[[2]],
-                        blarg(phyloseq_obj = FS12b, day = '21', tissue = 'C', covariate = 'log_sal')[[2]])
-
-global_sal_OTUs <- bind_rows(global_sal_OTUs)
-
+global_sal_OTUs <-
+  bind_rows(blarg(phyloseq_obj = FS12b, day = '2', tissue = 'F', covariate = 'log_sal')[[2]], 
+            blarg(phyloseq_obj = FS12b, day = '7', tissue = 'F', covariate = 'log_sal')[[2]],
+            blarg(phyloseq_obj = FS12b, day = '14', tissue = 'F', covariate = 'log_sal')[[2]],
+            blarg(phyloseq_obj = FS12b, day = '21', tissue = 'F', covariate = 'log_sal')[[2]],
+            blarg(phyloseq_obj = FS12b, day = '21', tissue = 'C', covariate = 'log_sal')[[2]])
 
 ## this is the filtered OTUs that differ by treatment
 tocontf
@@ -1252,10 +1248,10 @@ FS12_RCS <- subset_samples(FS12b, treatment == 'RCS')
 
 ### CONTROL
 # blarg(phyloseq_obj = FS12_control, day = 'D7',tissue = 'F', covariate = 'log_sal')
-control_blarg <- bind_rows(list(blarg(phyloseq_obj = FS12_control, day = 'D2',tissue = 'F', covariate = 'log_sal')[[2]],
-                                blarg(phyloseq_obj = FS12_control, day = 'D14',tissue = 'F', covariate = 'log_sal')[[2]],
-                                blarg(phyloseq_obj = FS12_control, day = 'D21',tissue = 'F', covariate = 'log_sal')[[2]],
-                                blarg(phyloseq_obj = FS12_control, day = 'D21',tissue = 'X', covariate = 'log_sal')[[2]]))
+control_blarg <- bind_rows(list(blarg(phyloseq_obj = FS12_control, day = 2,tissue = 'F', covariate = 'log_sal')[[2]],
+                                blarg(phyloseq_obj = FS12_control, day = 14,tissue = 'F', covariate = 'log_sal')[[2]],
+                                blarg(phyloseq_obj = FS12_control, day = 21,tissue = 'F', covariate = 'log_sal')[[2]],
+                                blarg(phyloseq_obj = FS12_control, day = 21,tissue = 'X', covariate = 'log_sal')[[2]]))
 # blarg(phyloseq_obj = FS12_control, day = 'D21',tissue = 'C', covariate = 'log_sal')
 # blarg(phyloseq_obj = FS12_control, day = 'D21',tissue = 'I', covariate = 'log_sal')
 control_blarg$treatment <- 'Control'
