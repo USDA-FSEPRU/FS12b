@@ -11,13 +11,13 @@ MET <- read_tsv('./data/FS12b_meta.tsv') %>%
   column_to_rownames(var='sample_ID') %>% 
   sample_data()
 
-descripts <- read_tsv('./data/path_abun_unstrat_descrip.tsv') %>%
+descripts <- read_tsv('./data/no_rare_path_abun_unstrat_descrip.tsv') %>%
   select(pathway, description)
 
 
 
 countData <-
-  read_tsv('./data/path_abun_unstrat.tsv') %>% 
+  read_tsv('./data/no_rare_path_abun_unstrat.tsv') %>% 
   column_to_rownames(var = 'pathway') %>%
   floor()
 
@@ -36,6 +36,7 @@ hist(taxa_sums(picrust_phylo), breaks = 1000)
 
 hist(sample_sums(picrust_phylo), breaks = 1000)
 
+picrust_phylo@sam_data$ID
 
 picrust_difabund <- 
 function(phyloseq, tissue, day, descripts, pval=0.05){
@@ -232,4 +233,40 @@ plotCounts(deseq_obj, gene='CENTFERM-PWY', intgroup = 'shed')
 res %>% ggplot(aes(x=log2FoldChange, y=pathway)) + geom_col() + 
   geom_text(aes(x=0, label=description)) + xlim(-10, 10)
 
+#################
+
+
+
+MET <- read_tsv('./data/FS12b_meta.tsv') %>%
+  mutate(ID=sample_ID) %>%
+  select(ID, everything()) %>% 
+  column_to_rownames(var='sample_ID') %>% 
+  sample_data()
+
+descripts <- read_tsv('./data/no_rare_path_abun_unstrat_descrip.tsv') %>%
+  select(pathway, description)
+
+
+
+countData <-
+  read_tsv('./data/no_rare_path_abun_unstrat.tsv') %>% 
+  column_to_rownames(var = 'pathway') %>%
+  floor()
+
+
+countData <- countData[rowSums(countData > 5) > 5,]
+
+otu_tab <- otu_table(countData, taxa_are_rows = TRUE)
+metadat <- sample_data(MET)
+
+metadat$treatment <- factor(metadat$treatment, levels = c('Control', 'RPS', 'Acid', 'RCS'))
+
+
+picrust_phylo <- phyloseq(otu_tab, metadat)
+
+hist(taxa_sums(picrust_phylo), breaks = 1000)
+
+hist(sample_sums(picrust_phylo), breaks = 1000)
+
+picrust_phylo@sam_data$ID
 
