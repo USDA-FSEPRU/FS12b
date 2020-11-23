@@ -29,7 +29,8 @@ pigpen
 
 rep(c(1,1,1.5,1,1), times=96)
 
-pens %>%
+p1 <- 
+  pens %>%
   ggplot() +
   geom_tile(aes(x=xpos, y=ypos, fill=treatment),width=.75, height=.75, color='black') + 
   geom_point(data=pigpen, aes(x=xpigpos, y=ypos, shape=cohort, stroke=strk))+
@@ -39,8 +40,11 @@ pens %>%
   theme(axis.text = element_blank(), 
         axis.ticks = element_blank(),
         axis.line = element_blank()) + 
-  ggtitle('Nursery Pen Layout', 'five pigs per pen, in Nursery for 4 weeks')
+  annotate('text', x=4.5, y=15, label='Nursery Pen Layout', size=5)+
+  annotate('text', x=4.5, y=13.75, label='Five pigs per pen, in nursery for 4 weeks', size=5)
+  # ggtitle('Nursery Pen Layout', 'five pigs per pen, in Nursery for 4 weeks')
 
+p1
 
 
 
@@ -67,17 +71,45 @@ pig_room_tibble <-
   mutate(xpos=xpos+xpos_adj, 
          ypos=ypos+ypos_adj)
 
-pig_room_tibble %>% ggplot()+
-  geom_tile(data=room_tibble, aes(x=xpos, y=ypos, fill=treatment),color='black', width=1.25, height=1, size=1)+
-  geom_point(aes(x=xpos, y=ypos,fill=treatment), shape=24, size=2, stroke=1) +
+p2 <- 
+  pig_room_tibble %>% ggplot()+
+  geom_tile(data=room_tibble, aes(x=xpos, y=ypos, fill=treatment),color='black', width=1.5, height=.8, size=1)+
+  geom_point(aes(x=xpos, y=ypos,fill=treatment), shape=24, size=3, stroke=1) +
   geom_text(data = room_tibble, aes(label=treatment, y=ypos, x=xpos), size=5)+
-  xlim(-1,7)+
-  ylim(-1,1) +
+  annotate(geom='text', x=3, y=.6,size=5, label='One pig per pen from each treatment transfered to isolation rooms')+
+  annotate(geom='text', x=3, y=.5,size=5, label='Infected with 10e8 CFU Salmonella strain USDA15WA-1')+
+  annotate(geom='text', x=3, y=-.5,size=5, label='Feces collected at D0, D2, D7, D14, and D21 post infection.')+
+  annotate(geom='text', x=3, y=-.6,size=5, label='Necropsies performed at D21')+
+  
   scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple'))  + 
   theme_cowplot() +
   theme(axis.text = element_blank(), 
         axis.title = element_blank(), 
         axis.line = element_blank(), 
         axis.ticks = element_blank(), 
-        legend.position = 'none') + 
-  ggtitle("Cohort Transfered to isolation rooms\ninfected with 10e8 CFU salmonella str. USDAWA15-1\n the following morning")
+        legend.position = 'none')
+  # xlim(-1,7)+
+  # ylim(-1,1) +
+p2
+
+
+
+
+mfig <- ggdraw()+
+  draw_plot(p1, 0,.4,1,.6)+
+  draw_plot(p2, 0,0,1,.45)+
+  draw_plot_label(x=c(0,0), y=c(1,.45), label = c('A', 'B'))
+mfig
+
+
+
+
+
+ggsave(mfig,
+       filename = './output/methods.jpeg',
+       width = 180,
+       height = 180,
+       device = 'jpeg',
+       dpi = 300,
+       units = 'mm')
+
