@@ -7,6 +7,9 @@ library(broom)
 library(DESeq2)
 
 ## Build phyloseq object ##
+## probably split this into the calculations and then the figures.
+### write out the calcs and then read back in in figures script.
+
 
 OTU <- read_tsv('./data/FS12b_OTU.tsv') %>%
   column_to_rownames(var='sample_ID') %>%
@@ -244,8 +247,11 @@ FS12b@sam_data$disper_dist <- dispersdf$dispers.distances
 # FS12b_meta <- FS12b_metanmds[[1]]
 
 # FS12b_meta <- merge(FS12b_meta, dispersdf, by='ID')
-FS12b@sam_data$day <- as.numeric(gsub('D', '', FS12b@sam_data$day))
-FS12b@sam_data$dayfact <- factor(FS12b@sam_data$day)
+
+# WHY DID I DO THIS?
+# FS12b@sam_data$day <- as.numeric(gsub('D', '', FS12b@sam_data$day))
+FS12b@sam_data$day <- factor(FS12b@sam_data$day, levels = c('D0', 'D2', 'D7', 'D14', 'D21'))
+FS12b@sam_data$dayfact <- factor(FS12b@sam_data$day, levels = c('D0', 'D2', 'D7', 'D14', 'D21'))
 
 
 # FS12b_meta$treatment <- factor(FS12b_meta$treatment, levels = c('Control', 'RPS', 'Acid','ZnCu', 'RCS', 'Bglu'))
@@ -255,6 +261,8 @@ FS12b@sam_data$dayfact <- factor(FS12b@sam_data$day)
 FS12b@sam_data$shan <- diversity(rrarefy(FS12b@otu_table, min(rowSums(FS12b@otu_table))))
 FS12b@sam_data$rich <- specnumber(rrarefy(FS12b@otu_table, min(rowSums(FS12b@otu_table))))
 FS12b@sam_data$even <- FS12b@sam_data$shan/log(FS12b@sam_data$rich)
+
+# end alpha calcs #
 
 #fecal shannon
 
@@ -531,16 +539,16 @@ times <- PW.ad[grep('(.*)_(.*)_(.*)_(.*) vs (.*)_(.*)_\\3_\\4', PW.ad$pairs),]
 # goods$p.adjusted <- p.adjust(p=goods$p.value,method = 'holm')
 
 D0 <- goods[grep('D0', goods$pairs),]
-D0$day <- 0
+D0$day <- 'D0'
 
 D2 <- goods[grep('D2_', goods$pairs),]
-D2$day <- 2
+D2$day <- 'D2'
 D7 <- goods[grep('D7', goods$pairs),]
-D7$day <- 7
+D7$day <- 'D7'
 D14 <- goods[grep('D14', goods$pairs),]
-D14$day <- 14
+D14$day <- 'D14'
 D21 <- goods[grep('D21', goods$pairs),]
-D21$day <- 21
+D21$day <- 'D21'
 
 fin <- rbind(D0, D2, D7, D14, D21)
 
@@ -573,22 +581,24 @@ to_conts$p.fdr.lab <- ifelse(to_conts$p.fdr < 0.05, to_conts$p.fdr, NA)
 
 to_conts$treatment <- factor(to_conts$treatment, levels=c('RPS', 'Acid', 'ZnCu','RCS', 'Bglu'))
 
+to_conts %>% write_tsv('./output/PERMANOVAs_vs_control.tsv')
 
+to_conts <- read_tsv('./output/PERMANOVAs_vs_control.tsv') %>% 
+  mutate(treatment = factor(treatment, levels = c('Control', 'RPS', 'Acid', 'RCS')), 
+         daynum=as.numeric(sub('D', '', day)))
 ######## FIGURE 3 ##########
 
 # ADD ALPHA DIV and DISPERSION 
 
 FIG3A <- 
-  to_conts %>% filter(tissue == 'feces') %>% ggplot(aes(x=day, y=F.Model, group=treatment, fill=treatment, color=treatment, label=p.fdr.lab)) +
+  to_conts %>% filter(tissue == 'feces') %>% ggplot(aes(x=daynum, y=F.Model, group=treatment, fill=treatment, color=treatment, label=p.fdr.lab)) +
   geom_line(size=1.52) + geom_point(shape=21) + scale_color_manual(values=c('#3399FF', 'orange', 'red', 'grey', 'purple')) + 
   geom_label(color='black') +
   scale_fill_manual(values=c('#3399FF', 'orange', 'red', 'grey', 'purple')) #+ 
   # ggtitle('Community differences compared to control group over time', subtitle = )
 FIG3A
 
-to_conts %>% write_tsv('./output/PERMANOVAs_vs_control.tsv')
 
-### WRITE OUT TOCONTS ###
 # shan will be fig 3B
 
 # tmp_adon <- same_day_tissue %>% filter(day %in% c('D0', 'D23'))
@@ -631,16 +641,16 @@ to_conts %>% write_tsv('./output/PERMANOVAs_vs_control.tsv')
 
 # NEED TO SET FACTOR LEVELS FOR TREATMENTS
 FS12b@sam_data$treatment
-
-tocont <- list(DESeq_difabund(phyloseq = FS12b, day = 0, tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
+FS12b@sam_data$day
+tocont <- list(DESeq_difabund(phyloseq = FS12b, day = 'D0', tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
                # DESeq_difabund(phyloseq = FS12b, day = 'D0', tissue = 'Q', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
-               DESeq_difabund(phyloseq = FS12b, day = 2, tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
-               DESeq_difabund(phyloseq = FS12b, day = 7, tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
-               DESeq_difabund(phyloseq = FS12b, day = 14, tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
-               DESeq_difabund(phyloseq = FS12b, day = 21, tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
-               DESeq_difabund(phyloseq = FS12b, day = 21, tissue = 'C', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
-               DESeq_difabund(phyloseq = FS12b, day = 21, tissue = 'X', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
-               DESeq_difabund(phyloseq = FS12b, day = 21, tissue = 'I', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'))
+               DESeq_difabund(phyloseq = FS12b, day = 'D2', tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
+               DESeq_difabund(phyloseq = FS12b, day = 'D7', tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
+               DESeq_difabund(phyloseq = FS12b, day = 'D14', tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
+               DESeq_difabund(phyloseq = FS12b, day = 'D21', tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
+               DESeq_difabund(phyloseq = FS12b, day = 'D21', tissue = 'C', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
+               DESeq_difabund(phyloseq = FS12b, day = 'D21', tissue = 'X', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
+               DESeq_difabund(phyloseq = FS12b, day = 'D21', tissue = 'I', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'))
 
 
 
@@ -649,7 +659,7 @@ tocont <- bind_rows(tocont)
 
 tocontf <- tocont[abs(tocont$log2FoldChange) > .5,]
 
-tocontf %>% ggplot(aes(x=OTU, y=log2FoldChange, fill=Treatment)) + 
+tocontf %>% ggplot(aes(x=Family, y=log2FoldChange, fill=Treatment)) + 
  geom_point(shape=21) + coord_flip() 
 
 ### WRITE OUT TOCONTF ###
@@ -694,11 +704,33 @@ tocontf %>%
   ggplot(aes(x=comp, y=n, fill=Order_lump)) +
   geom_col(color='black') +
   scale_fill_brewer(palette = 'Set1') +
+  ggtitle('number of OTUs enriched in each treatment relative to the control across all tissues and timepoints')
+
+colnames(tocontf)
+tocontf %>% 
+  filter(log2FoldChange > 0) %>%
+  mutate(Order_lump=fct_lump_n(OTU, 9)) %>% 
+  group_by(comp, Order_lump) %>%
+  tally() %>% 
+  ggplot(aes(x=comp, y=n, fill=Order_lump)) +
+  geom_col(color='black') +
+  scale_fill_brewer(palette = 'Set1') +
   ggtitle('number of OTUs enriched in each treatent relative to the control across all tissues and timepoints')
+
+
+
+
+
+tocontf %>% group_by(Treatment,OTU) %>% tally() %>% arrange(desc(n))
+tocontf %>% group_by(Order) %>% tally()
+
+
+tocontf %>% filter(Phylum =='Proteobacteria' & Treatment == 'RPS') %>% group_by(OTU) %>% tally()
 
 tocontf %>% 
   filter(log2FoldChange < 0) %>%
-  mutate(Order_lump=fct_lump_n(Order, 9)) %>% 
+  mutate(Order_lump=fct_lump_n(Order, 9), 
+         Order = fct_reorder(Order, Phylum)) %>% 
   group_by(comp, Order_lump) %>%
   tally() %>% 
   ggplot(aes(x=comp, y=n, fill=Order_lump)) +

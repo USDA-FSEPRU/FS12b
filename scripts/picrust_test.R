@@ -11,18 +11,22 @@ MET <- read_tsv('./data/FS12b_meta.tsv') %>%
   column_to_rownames(var='sample_ID') %>% 
   sample_data()
 
-descripts <- read_tsv('./data/no_rare_path_abun_unstrat_descrip.tsv') %>%
+descripts <- read_tsv('./data/no_rare_path_abun_unstrat_descrip.tsv') %>% 
   select(pathway, description)
 
 
 
 countData <-
-  read_tsv('./data/no_rare_path_abun_unstrat.tsv') %>% 
+  read_tsv('./data/no_rare_path_abun_unstrat_descrip.tsv') %>% 
+  select(pathway, MET$ID) %>% 
   column_to_rownames(var = 'pathway') %>%
   floor()
 
-
+hist(rowSums(countData), breaks=100)
+hist(rowSums(countData > 5), breaks = 100)
 countData <- countData[rowSums(countData > 5) > 5,]
+hist(rowSums(countData > 5), breaks = 100)
+
 
 otu_tab <- otu_table(countData, taxa_are_rows = TRUE)
 metadat <- sample_data(MET)
@@ -39,7 +43,7 @@ hist(sample_sums(picrust_phylo), breaks = 1000)
 picrust_phylo@sam_data$ID
 
 picrust_difabund <- 
-function(phyloseq, tissue, day, descripts, pval=0.05){
+function(phyloseq, tissue, day, descripts, pval=0.05, l2fc=.5){
   deseq_obj <- 
     phyloseq %>%
     prune_samples(samples = phyloseq@sam_data$tissue ==tissue &
@@ -53,7 +57,7 @@ function(phyloseq, tissue, day, descripts, pval=0.05){
   res <- 
     results(deseq_obj, name = "treatment_RPS_vs_Control") %>%
     as.data.frame() %>% 
-    filter(padj < pval) %>% 
+    filter(padj < pval & abs(log2FoldChange) > l2fc) %>% 
     rownames_to_column(var = 'pathway') %>% 
     left_join(descripts) %>% 
     mutate(pathway=fct_reorder(pathway, log2FoldChange), 
@@ -86,10 +90,64 @@ RPS_vs_control_picrust <- list(
 
 
 
-CONTROL_VS_RPS_PICRUST <- bind_rows(lapply(RPS_vs_control_picrust, '[[', 1))
+CONTROL_VS_RPS_PICRUST <- bind_rows(lapply(RPS_vs_control_picrust, '[[', 1)) %>% 
+  mutate(day=factor(day, levels = c('D0', 'D2', 'D7', 'D14', 'D21')), 
+         pathway=fct_reorder(pathway, log2FoldChange), 
+         description=fct_reorder(description, log2FoldChange))%>%
+  mutate(ptype=ifelse(grepl('synthesis', description), 'synthesis',
+                      ifelse(grepl('degradation', description), 'degradation', 'other')))
+
 
 write_tsv(CONTROL_VS_RPS_PICRUST, './output/Control_vs_RPS_picrust.tsv')
 
+CONTROL_VS_RPS_PICRUST %>% filter(ptype == 'other')
+
+
+CONTROL_VS_RPS_PICRUST %>% #filter(tissue =='F') %>% 
+  arrange(desc(log2FoldChange)) %>% 
+  ggplot(aes(x=description, y=log2FoldChange)) +
+  # geom_text(aes(label=description, y=0)) +
+  geom_point(aes(color=day, shape=tissue)) + coord_flip() + 
+  scale_color_brewer(palette = 'Set1') +
+  facet_wrap(~ptype, scales = 'free_y', ncol = 1)
+
+CONTROL_VS_RPS_PICRUST %>% filter(ptype =='degradation') %>% 
+  arrange(desc(log2FoldChange)) %>% 
+  ggplot(aes(x=description, y=log2FoldChange)) +
+  # geom_text(aes(label=description, y=0)) +
+  geom_point(aes(color=day, shape=tissue)) + coord_flip() + 
+  scale_color_brewer(palette = 'Set1') #+
+  # facet_wrap(~ptype, scales = 'free_y', ncol = 1)
+
+
+CONTROL_VS_RPS_PICRUST %>% filter(ptype =='synthesis') %>% 
+  arrange(desc(log2FoldChange)) %>% 
+  ggplot(aes(x=description, y=log2FoldChange)) +
+  # geom_text(aes(label=description, y=0)) +
+  geom_point(aes(color=day, shape=tissue)) + coord_flip() + 
+  scale_color_brewer(palette = 'Set1') #+
+
+
+CONTROL_VS_RPS_PICRUST %>% filter(ptype =='degradation') %>% 
+  arrange(desc(log2FoldChange)) %>% 
+  ggplot(aes(x=description, y=log2FoldChange)) +
+  # geom_text(aes(label=description, y=0)) +
+  geom_point(aes(color=day, shape=tissue)) + coord_flip() + 
+  scale_color_brewer(palette = 'Set1') #+
+
+
+
+tocont %>% filter(Phylum == 'Proteobacteria')
+
+
+
+
+CONTROL_VS_RPS_PICRUST %>% filter(tissue !='F') %>% 
+  arrange(desc(log2FoldChange)) %>% 
+  ggplot(aes(x=description, y=log2FoldChange)) +
+  # geom_text(aes(label=description, y=0)) +
+  geom_point(aes(color=day, shape=tissue)) + coord_flip() + 
+  scale_color_brewer(palette = 'Set1')
 
 
 D0_fec <- 
@@ -194,7 +252,7 @@ highlow_picrust <-
 
 
 
-highlow_picrust(FS12b_HL, tissue = 'F', day = 'D7', descripts = descripts, pval = 0.05)
+highlow_picrust(FS12b_HL, tissue = 'F', day = 'D21', descripts = descripts, pval = 0.05)
 
 
 
