@@ -115,7 +115,7 @@ CONTROL_VS_RPS_PICRUST %>% filter(ptype =='degradation') %>%
   arrange(desc(log2FoldChange)) %>% 
   ggplot(aes(x=description, y=log2FoldChange)) +
   # geom_text(aes(label=description, y=0)) +
-  geom_point(aes(color=day, shape=tissue)) + coord_flip() + 
+  geom_point(aes(color=day, shape=tissue), size=3) + coord_flip() + 
   scale_color_brewer(palette = 'Set1') #+
   # facet_wrap(~ptype, scales = 'free_y', ncol = 1)
 
@@ -137,7 +137,7 @@ CONTROL_VS_RPS_PICRUST %>% filter(ptype =='degradation') %>%
 
 
 
-tocont %>% filter(Phylum == 'Proteobacteria')
+# tocont %>% filter(Phylum == 'Proteobacteria')
 
 
 
@@ -293,38 +293,43 @@ res %>% ggplot(aes(x=log2FoldChange, y=pathway)) + geom_col() +
 
 #################
 
-
-
-MET <- read_tsv('./data/FS12b_meta.tsv') %>%
-  mutate(ID=sample_ID) %>%
-  select(ID, everything()) %>% 
-  column_to_rownames(var='sample_ID') %>% 
-  sample_data()
-
-descripts <- read_tsv('./data/no_rare_path_abun_unstrat_descrip.tsv') %>%
-  select(pathway, description)
+# linear relationships with log_sal
 
 
 
-countData <-
-  read_tsv('./data/no_rare_path_abun_unstrat.tsv') %>% 
-  column_to_rownames(var = 'pathway') %>%
-  floor()
+HL_phylo <- 
+  FS12b_HL %>%
+  prune_samples(samples = FS12b_HL@sam_data$tissue =='X' &
+                  FS12b_HL@sam_data$day =='D21') %>% 
+  prune_taxa(taxa = taxa_sums(FS12b_HL) > 5) %>% 
+  phyloseq_to_deseq2(design = ~ log_sal)
 
 
-countData <- countData[rowSums(countData > 5) > 5,]
-
-otu_tab <- otu_table(countData, taxa_are_rows = TRUE)
-metadat <- sample_data(MET)
-
-metadat$treatment <- factor(metadat$treatment, levels = c('Control', 'RPS', 'Acid', 'RCS'))
 
 
-picrust_phylo <- phyloseq(otu_tab, metadat)
 
-hist(taxa_sums(picrust_phylo), breaks = 1000)
+deseq_obj <- DESeq(HL_phylo)
 
-hist(sample_sums(picrust_phylo), breaks = 1000)
+resultsNames(deseq_obj)
 
-picrust_phylo@sam_data$ID
+
+lfcShrink(dds = deseq_obj, coef = 2)
+
+res <- 
+  lfcShrink(dds = deseq_obj, coef = 2) %>%
+  as.data.frame() %>% 
+  filter(padj < 0.05) %>% 
+  filter(log2FoldChange > 0.1) %>% 
+  rownames_to_column(var = 'pathway') %>% 
+  left_join(descripts) %>% 
+  mutate(pathway=fct_reorder(pathway, log2FoldChange))
+
+nrow(res)
+
+plotCounts(deseq_obj, gene='CENTFERM-PWY', intgroup = 'shed')
+
+
+res %>% ggplot(aes(x=log2FoldChange, y=pathway)) + geom_col() + 
+  geom_text(aes(x=0, label=description)) + xlim(-10, 10)
+
 

@@ -109,6 +109,7 @@ anno <- tibble(y=c(0,0,0,0),
                            'ANOVA p=0.11'))
 
 ### FIG 1B
+# PROBABLY CUT THIS FIGURE #
 F1B <- daily_tuks %>%
   ggplot(aes(x=contrast, y=estimate, ymin=conf.low, ymax=conf.high, color=contrast)) +
   geom_hline(yintercept = 0, color='grey')+
@@ -131,6 +132,59 @@ F1B
 # FIGURE 2A
 
 
+library(lme4)
+library(lmerTest)
+# lmer(data=sal_data, formula = log_sal ~ )
+
+sal_no0 <- 
+  sal_data %>%
+  filter(time_point != 0) %>% 
+  mutate(pignum=factor(pignum), 
+         treatment=factor(treatment, levels = c('control', 'RPS', 'Acid', 'RCS')))
+
+glimpse(sal_no0)
+fit_interact   <- lmer(log_sal ~ time_point_fact * treatment + (1|pignum) , data=sal_no0)      # time is factor
+fit_nointeract <- lmer(log_sal ~ time_point_fact + treatment + (1|pignum) , data=sal_no0)      # time is factor
+
+
+AIC(fit_interact, fit_nointeract)
+anova(fit_interact, fit_nointeract)
+
+summary(fit_interact)
+confint(fit_interact)
+
+confint(fit_nointeract)
+summary(fit_nointeract)
+car::Anova(fit_interact)
+car::Anova(fit_nointeract)
+
+
+# m.emm <- emmeans(fit_nointeract, c("time_point_fact", 'treatment'))
+
+m.emm <-
+  emmeans(fit_interact, ~ treatment | time_point_fact) %>%
+  contrast(method='revpairwise') %>%
+  tidy(conf.int=TRUE) %>% 
+  mutate(day=factor(time_point_fact, levels = c('2', '7', '14', '21')), 
+         contrast=factor(contrast, levels = c('RPS - control', 'Acid - control', 'RCS - control'))) 
+
+
+
+m.emm %>%
+  filter(grepl('control', contrast)) %>% 
+  ggplot(aes(x=contrast, y=estimate, color=contrast))+
+  geom_point() + geom_hline(yintercept = 0)+
+  geom_pointrange(aes(ymin=conf.low, ymax=conf.high)) +
+  coord_flip()+ facet_wrap(~day, nrow = 1)
+
+
+plot(fit_interact)
+plot(fit_nointeract)
+anova(fit_interact, fit_nointeract)
+
+
+
+# AULC
 sum_sal <- sal_data %>% group_by(pignum) %>%
   summarise(AULC=trapz(time_point, log_sal),
             sum=sum(log_sal), 
@@ -192,6 +246,11 @@ F2B
 
 
 
+hist(sal_no0$log_sal, breaks=100)
+
+
+sal_no0$Salmonella
+sample(1:50, size = 1, replace = TRUE)
 
 
 
@@ -349,7 +408,7 @@ fig_1
 
 
 ggsave(fig_1,
-       filename = './output/figs/figure1.jpeg',
+       filename = './output/figure1.jpeg',
        width = 180,
        height = 150,
        device = 'jpeg',
@@ -371,7 +430,7 @@ fig_2
 
 
 ggsave(fig_2,
-       filename = './output/figs/figure2.jpeg',
+       filename = './output/figure2.jpeg',
        width = 180,
        height = 85,
        device = 'jpeg',
@@ -394,7 +453,7 @@ fig_3
 
 
 ggsave(fig_3,
-       filename = './output/figs/figure3.jpeg',
+       filename = './output/figure3.jpeg',
        width = 180,
        height = 150,
        device = 'jpeg',
@@ -425,7 +484,7 @@ tis_RPS %>% ggplot(aes(x=shed, y=log_sal, group=shed, fill=shed)) +
   scale_fill_manual(values=c('#33CC33', '#246DB6', '#47D6FF', 'orange', 'red', 'grey', 'purple')) +
   ggtitle('Cecal Contents')
 
-sum_sal_RPS %>% ggplot(aes(x=shed, y=AULC, group=shed, fill=shed)) +
+sum_sal_RPS %>% ggplot(aes(x=treatment, y=AULC, group=shed, fill=shed)) +
   geom_boxplot(outlier.alpha = 0) +
   geom_jitter(shape=21,width = .1, size=2.25) +
   #facet_wrap(~tissue) +

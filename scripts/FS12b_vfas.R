@@ -3,6 +3,10 @@ library(tidyverse)
 library(cowplot)
 theme_set(theme_cowplot())
 
+vfas <- read_tsv('./data/FS12b_meta.tsv')
+
+
+colnames(vfas)
 vfas <- read_csv('./data/FS12b_vfas.csv')
 vfas <- vfas %>% filter(treatment %in% c('control', 'RPS', 'Acid','RCS'))
 vfas$treatment <- factor(vfas$treatment, levels = c('control', 'RPS', 'Acid', 'Zn+Cu', 'RCS', 'Bglu'))
@@ -93,7 +97,7 @@ vfas_for_cor$tissue <- 'cecal_contents'
 vfas_for_cor <- vfas_for_cor %>% select(pignum, treatment, day, tissue, everything())
 
 
-write_csv(vfas_for_cor, './data/FS12b_vfas_for_cor.csv')
+# write_csv(vfas_for_cor, './data/FS12b_vfas_for_cor.csv')
 
 ############### FECAL DATA #################
 

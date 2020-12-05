@@ -354,18 +354,6 @@ shan_fig
 #   geom_line() + geom_point()
 
 
-#
-#### CHANGE TO ANOVA TESTS FOR ALPHA AND DISPERSION ####
-# 
-# get_pairs <- function(df){
-#   pp <- pairwise.wilcox.test(df$dispers.distances, df$treatment, p.adjust.method = 'none')
-#   ppdf <- as.data.frame(pp$p.value)
-#   ps <- data.frame(matrix(c(pp$p.value), nrow = 1))
-#   names(ps) <- paste(c(rep(names(ppdf), each = nrow(ppdf))), "_vs_", rep(rownames(ppdf), ncol(ppdf)), sep = "")
-#   ps
-#   
-# }
-
 disper_fecal_tests <-
   FS12b@sam_data %>%
   as_tibble()  %>%
@@ -613,23 +601,23 @@ FIG3A
 FIG3B <- shan_fig + theme(panel.grid.major  = element_line(color='grey'), 
                           legend.position = 'bottom')
 
-
-fig_3 <- ggdraw()+
-  draw_plot(FIG3A, 0,.45,1,.55)+
-  draw_plot(FIG3B, 0,0,1,.45)+
-  draw_plot_label(x=c(0,0), y=c(1,.45), label = c('A', 'B'))
-fig_3
-
-
-ggsave(fig_3,
-       filename = './output/alphabeta.jpeg',
-       width = 180,
-       height = 140,
-       device = 'jpeg',
-       dpi = 300,
-       units = 'mm')
-
-
+# 
+# fig_3 <- ggdraw()+
+#   draw_plot(FIG3A, 0,.45,1,.55)+
+#   draw_plot(FIG3B, 0,0,1,.45)+
+#   draw_plot_label(x=c(0,0), y=c(1,.45), label = c('A', 'B'))
+# fig_3
+# 
+# 
+# ggsave(fig_3,
+#        filename = './output/alphabeta.jpeg',
+#        width = 180,
+#        height = 140,
+#        device = 'jpeg',
+#        dpi = 300,
+#        units = 'mm')
+# 
+# 
 
 
 
@@ -762,6 +750,47 @@ FIG3C <-
   ylab('Number of significantly enriched OTUs vs Control') + 
   xlab('')
 
+### TEST ####
+
+tocontf %>% 
+  filter(log2FoldChange > 0) %>%
+  mutate(Order=fct_infreq(Order),
+         Order=fct_lump_n(Order, 8)) %>% 
+  mutate(comp = factor(comp, levels = c('RPS_vs_Control', 'Acid_vs_Control', 'RCS_vs_Control'))) %>% 
+  ggplot(aes(x=comp, y=log(baseMean), fill=Order)) +
+  geom_col(color=alpha('black', alpha = .2)) +
+  scale_fill_brewer(palette = 'Dark2') +
+  # ggtitle('Number of OTUs enriched in each treatment relative to the control across all tissues and timepoints') + 
+  theme_cowplot() +
+  theme(legend.text = element_text(size=11),
+        axis.text.x = element_text(size=11),
+        # legend.background = element_rect(colour="grey", fill="grey", size=3),
+        legend.position=c(.39,.75)
+  )+
+  ylab('Number of significantly enriched OTUs vs Control') + 
+  xlab('')
+
+
+tocontf %>% 
+  filter(log2FoldChange > 0) %>%
+  mutate(Order=fct_infreq(Order),
+         Order=fct_lump_n(Order, 8)) %>% 
+  mutate(comp = factor(comp, levels = c('RPS_vs_Control', 'Acid_vs_Control', 'RCS_vs_Control'))) %>% 
+  ggplot(aes(x=comp, y=(baseMean), fill=Order)) +
+  geom_col(color=alpha('black', alpha = .2)) +
+  scale_fill_brewer(palette = 'Dark2') +
+  # ggtitle('Number of OTUs enriched in each treatment relative to the control across all tissues and timepoints') + 
+  theme_cowplot() +
+  theme(legend.text = element_text(size=11),
+        axis.text.x = element_text(size=11),
+        # legend.background = element_rect(colour="grey", fill="grey", size=3),
+        legend.position=c(.39,.75)
+  )+
+  ylab('Number of significantly enriched OTUs vs Control') + 
+  xlab('')
+
+
+
 colnames(tocontf)
 
 fig_3 <- ggdraw()+
@@ -774,7 +803,7 @@ fig_3
 
 
 ggsave(fig_3,
-       filename = './output/alphabeta.jpeg',
+       filename = './output/16S_overview.jpeg',
        width = 250,
        height = 140,
        device = 'jpeg',
@@ -795,23 +824,23 @@ ggsave(fig_3,
 # 
 # 
 
-
-tocontf %>% group_by(Treatment,OTU) %>% tally() %>% arrange(desc(n))
-tocontf %>% group_by(Order) %>% tally()
-
-
-tocontf %>% filter(Phylum =='Proteobacteria' & Treatment == 'RPS') %>% group_by(OTU) %>% tally()
-
-tocontf %>% 
-  filter(log2FoldChange < 0) %>%
-  mutate(Order_lump=fct_lump_n(Order, 9), 
-         Order = fct_reorder(Order, Phylum)) %>% 
-  group_by(comp, Order_lump) %>%
-  tally() %>% 
-  ggplot(aes(x=comp, y=n, fill=Order_lump)) +
-  geom_col(color='black') +
-  scale_fill_brewer(palette = 'Set1') +
-  ggtitle('number of OTUs enriched in each treatent relative to the control across all tissues and timepoints')
+# 
+# tocontf %>% group_by(Treatment,OTU) %>% tally() %>% arrange(desc(n))
+# tocontf %>% group_by(Order) %>% tally()
+# 
+# 
+# tocontf %>% filter(Phylum =='Proteobacteria' & Treatment == 'RPS') %>% group_by(OTU) %>% tally()
+# 
+# tocontf %>% 
+#   filter(log2FoldChange < 0) %>%
+#   mutate(Order_lump=fct_lump_n(Order, 9), 
+#          Order = fct_reorder(Order, Phylum)) %>% 
+#   group_by(comp, Order_lump) %>%
+#   tally() %>% 
+#   ggplot(aes(x=comp, y=n, fill=Order_lump)) +
+#   geom_col(color='black') +
+#   scale_fill_brewer(palette = 'Set1') +
+#   ggtitle('number of OTUs enriched in each treatent relative to the control across all tissues and timepoints')
 
 
 tocontf$Treatment <- sub('down_','',tocontf$Treatment)
@@ -839,17 +868,38 @@ tocontf %>%
 
 tocontf %>%
   filter(Treatment == 'RPS') %>% 
-  filter(day == 'D21') %>% 
+  filter(day == 'D21' & tissue != 'F') %>% 
   ggplot(aes(x=log2FoldChange, y=Genus, fill=tissue)) + 
-  geom_point(aes(shape=tissue),size=3) + 
+  geom_point(size=3 ,shape=21) + 
   geom_vline(xintercept = 0, color='black') + 
-  xlim(-15,15) +
+  xlim(-8.5,15) +
   # ylim()
-  scale_shape_manual(values=22:25) + 
   scale_fill_brewer(palette = 'Set1') + 
   theme_cowplot() + 
   theme(panel.grid.major.y =element_line(size=1, color='grey'), 
         axis.text.y = element_text(size=11)) 
+
+
+
+tocontf %>%
+  filter(Treatment == 'RPS') %>% 
+  filter(tissue == 'F') %>% 
+  ggplot(aes(x=log2FoldChange, y=Genus, fill=day)) + 
+  geom_point(size=3 ,shape=21) + 
+  geom_vline(xintercept = 0, color='black') + 
+  xlim(-8.5,15) +
+  # ylim()
+  scale_fill_brewer(palette = 'Set1') + 
+  theme_cowplot() + 
+  theme(panel.grid.major.y =element_line(size=1, color='grey'), 
+        axis.text.y = element_text(size=11)) 
+
+
+
+
+
+
+###
 
 tocontf$day
 
@@ -1252,10 +1302,13 @@ formula(paste('~', 'log_sal'))
 ##### SHOULD REALLY LOOK INTO INTERACTION WITH TREATMENT HERE!!!!!!!! 
 ### OR SUBSET EACH TREATMENT
 
-blarg <- function(phyloseq_obj, day, tissue, covariate, shrink_type='apeglm'){
+blarg <- function(phyloseq_obj, day, tissue, covariate, shrink_type='apeglm', cookscut=TRUE){
   form <- formula(paste('~', covariate, '+ treatment'))
   # print(form)
-  FS12b.glom <- phyloseq_obj %>% prune_samples(samples = phyloseq_obj@sam_data$day %in% c(day) & phyloseq_obj@sam_data$tissue == tissue)
+  # browser()
+  FS12b.glom <- phyloseq_obj %>%
+    prune_samples(samples = phyloseq_obj@sam_data$day %in% c(day) & phyloseq_obj@sam_data$tissue == tissue & !is.na(phyloseq_obj@sam_data[[covariate]]))
+  FS12b.glom@sam_data[[covariate]] <- scale(FS12b.glom@sam_data[[covariate]])
   FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
   
   # FS12b.glom@sam_data$log_sal
@@ -1265,7 +1318,9 @@ blarg <- function(phyloseq_obj, day, tissue, covariate, shrink_type='apeglm'){
   
   # these are not both possible.  Right now only lfcshrink is doing anytihng
   # res <- results(FS12b.de, cooksCutoff = FALSE, name = covariate)
-  sigtab <- lfcShrink(FS12b.de, coef = covariate, type = shrink_type)
+  res <- results(FS12b.de, name=covariate, cooksCutoff = cookscut)
+  sigtab <- lfcShrink(dds = FS12b.de, res=res, coef = covariate, type = shrink_type)
+  
   # browser()
   # resultsNames(FS12b.de)
   
@@ -1277,24 +1332,70 @@ blarg <- function(phyloseq_obj, day, tissue, covariate, shrink_type='apeglm'){
   sigtab$newp <- format(round(sigtab$padj, digits = 3), scientific = TRUE)
   # sigtab$Treatment <- ifelse(sigtab$log2FoldChange >=0, treat, paste('down',treat, sep = '_'))
   sigtab$OTU <- rownames(sigtab)
-  sigtab[[covariate]] <- ifelse(sigtab$log2FoldChange > 0 , 'increased', 'decreased')
+  sigtab[['direction']] <- ifelse(sigtab$log2FoldChange > 0 , 'increased', 'decreased')
   # sigtab$salm <- ifelse(sigtab$log2FoldChange >0 , 'increased', 'decreased')
   sigtab <- sigtab[order(sigtab$log2FoldChange),]
   sigtab$OTU <- factor(sigtab$OTU, levels = sigtab$OTU)
   sigtab$day <- day
   sigtab$tissue <- tissue
+  sigtab[['covariate']] <- covariate
   
+  fig_tit <- paste(covariate, 'associations with OTUs')
   
-  
-  p <- sigtab %>% filter(padj < 0.05) %>% 
-    ggplot(aes_string(x='OTU', y='log2FoldChange', fill=covariate)) +
-    geom_col(color='black') + coord_flip() + geom_text(aes(label=Genus, y=0))
+  p <- sigtab %>% 
+    filter(padj < 0.05) %>% 
+    ggplot(aes_string(x='OTU', y='log2FoldChange', fill='direction')) +
+    geom_col(color='black') + coord_flip() + geom_text(aes(label=Genus, y=0)) + 
+    ggtitle(fig_tit)
   
   return(list(p, sigtab))
   
   
 }
 
+
+
+
+VFA_blarg <- 
+  list(
+    blarg(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'lactate', cookscut = FALSE)[[2]],
+    blarg(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'butyrate', cookscut = FALSE)[[2]],
+    blarg(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'caproate', cookscut = FALSE)[[2]],
+    blarg(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'valerate', cookscut = FALSE)[[2]],
+    blarg(phyloseq_obj = FS12b, day = 'D21', tissue = 'X', covariate = 'lactate', cookscut = FALSE)[[2]],
+    blarg(phyloseq_obj = FS12b, day = 'D21', tissue = 'X', covariate = 'butyrate', cookscut = FALSE)[[2]],
+    blarg(phyloseq_obj = FS12b, day = 'D21', tissue = 'X', covariate = 'caproate', cookscut = FALSE)[[2]],
+    blarg(phyloseq_obj = FS12b, day = 'D21', tissue = 'X', covariate = 'valerate', cookscut = FALSE)[[2]]
+  )
+
+
+
+VFA_blarg <- bind_rows(VFA_blarg) %>%  arrange(OTU)
+
+
+# nodes will be:
+# 1) VFAs
+# 2) OTUs
+# 3) AULC
+
+VFA_blarg %>%
+  filter(direction == 'increased') %>% 
+  filter(padj < 0.05) %>% 
+  group_by(OTU, covariate) %>% 
+  summarise(av_bmean=mean(baseMean))
+
+
+# Here I have associations between otus and vfas for Cap val butyrate
+# need associations between cap val and but for AULC
+
+
+VFA_blarg %>% ggplot(aes(x=log2FoldChange, y=padj)) + geom_point()
+
+
+
+
+
+tst
 blarg(phyloseq_obj = FS12b, day = 'D2', tissue = 'F', covariate = 'log_sal')
 blarg(phyloseq_obj = FS12b, day = 'D7', tissue = 'F', covariate = 'log_sal')
 blarg(phyloseq_obj = FS12b, day = 'D14', tissue = 'F', covariate = 'log_sal')
