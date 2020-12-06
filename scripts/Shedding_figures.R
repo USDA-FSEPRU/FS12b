@@ -77,56 +77,56 @@ F1A
 # use this #
 # nest and do an anova at each timepoint
 library(broom)
-daily_tests <- sal_data %>% 
-  filter(time_point != 0) %>% 
-  group_by(time_point) %>%
-  nest() %>% 
-  mutate(AOV=map(.x = data, ~ aov(data=.x, log_sal ~ treatment)), 
-         tid_AOV=map(AOV, tidy), 
-         TUK=map(AOV, TukeyHSD), 
-         tid_TUK=map(TUK, tidy))
-
-
-daily_tests %>% select(time_point, tid_AOV) %>% unnest(cols = tid_AOV)
-
-
-
-daily_tuks <- daily_tests %>%
-  select(time_point, tid_TUK) %>% unnest(cols = tid_TUK) %>%
-  filter(grepl('control', contrast)) %>% 
-  mutate(tuk_pval=adj.p.value, 
-         fdr_pval=p.adjust(adj.p.value, method = 'fdr'), 
-         TPP=paste('Day', time_point), 
-         TPP=factor(TPP, levels = c('Day 2', 'Day 7', 'Day 14', 'Day 21'))) %>% 
-  select(-adj.p.value)
-
-anno <- tibble(y=c(0,0,0,0), 
-               TPP=factor(c('Day 2','Day 7','Day 14','Day 21'), levels = c('Day 2', 'Day 7', 'Day 14', 'Day 21')), 
-               x=c(3.6,3.6,3.6,3.6), 
-               labtext = c('ANOVA p=0.10', 
-                           'ANOVA p=0.07',
-                           'ANOVA p=0.26',
-                           'ANOVA p=0.11'))
-
-### FIG 1B
-# PROBABLY CUT THIS FIGURE #
-F1B <- daily_tuks %>%
-  ggplot(aes(x=contrast, y=estimate, ymin=conf.low, ymax=conf.high, color=contrast)) +
-  geom_hline(yintercept = 0, color='grey')+
-  geom_pointrange(size=.5) + 
-  geom_label(data=anno, aes(x=x,y=y,label=labtext), inherit.aes = FALSE)+
-  geom_text(aes(label=round(tuk_pval, digits = 2), y=2))+
-  coord_flip() + scale_x_discrete(expand = expand_scale(add = c(.5,1)))+
-  facet_wrap(.~TPP, ncol = 4) + 
-  ylim(-3,3) + scale_color_manual(values=c('red','orange','#3399FF')) +
-  theme(panel.border = element_rect(colour = "black", fill=NA, size=1), 
-        legend.position = 'none', 
-        axis.title.y = element_blank(), 
-        axis.title.x = element_text(size=11), 
-        panel.grid.major.x = element_line(color = 'grey', size = .2))
-
-
-F1B
+# daily_tests <- sal_data %>% 
+#   filter(time_point != 0) %>% 
+#   group_by(time_point) %>%
+#   nest() %>% 
+#   mutate(AOV=map(.x = data, ~ aov(data=.x, log_sal ~ treatment)), 
+#          tid_AOV=map(AOV, tidy), 
+#          TUK=map(AOV, TukeyHSD), 
+#          tid_TUK=map(TUK, tidy))
+# 
+# 
+# daily_tests %>% select(time_point, tid_AOV) %>% unnest(cols = tid_AOV)
+# 
+# 
+# 
+# daily_tuks <- daily_tests %>%
+#   select(time_point, tid_TUK) %>% unnest(cols = tid_TUK) %>%
+#   filter(grepl('control', contrast)) %>% 
+#   mutate(tuk_pval=adj.p.value, 
+#          fdr_pval=p.adjust(adj.p.value, method = 'fdr'), 
+#          TPP=paste('Day', time_point), 
+#          TPP=factor(TPP, levels = c('Day 2', 'Day 7', 'Day 14', 'Day 21'))) %>% 
+#   select(-adj.p.value)
+# 
+# anno <- tibble(y=c(0,0,0,0), 
+#                TPP=factor(c('Day 2','Day 7','Day 14','Day 21'), levels = c('Day 2', 'Day 7', 'Day 14', 'Day 21')), 
+#                x=c(3.6,3.6,3.6,3.6), 
+#                labtext = c('ANOVA p=0.10', 
+#                            'ANOVA p=0.07',
+#                            'ANOVA p=0.26',
+#                            'ANOVA p=0.11'))
+# 
+# ### FIG 1B
+# # PROBABLY CUT THIS FIGURE #
+# F1B <- daily_tuks %>%
+#   ggplot(aes(x=contrast, y=estimate, ymin=conf.low, ymax=conf.high, color=contrast)) +
+#   geom_hline(yintercept = 0, color='grey')+
+#   geom_pointrange(size=.5) + 
+#   geom_label(data=anno, aes(x=x,y=y,label=labtext), inherit.aes = FALSE)+
+#   geom_text(aes(label=round(tuk_pval, digits = 2), y=2))+
+#   coord_flip() + scale_x_discrete(expand = expand_scale(add = c(.5,1)))+
+#   facet_wrap(.~TPP, ncol = 4) + 
+#   ylim(-3,3) + scale_color_manual(values=c('red','orange','#3399FF')) +
+#   theme(panel.border = element_rect(colour = "black", fill=NA, size=1), 
+#         legend.position = 'none', 
+#         axis.title.y = element_blank(), 
+#         axis.title.x = element_text(size=11), 
+#         panel.grid.major.x = element_line(color = 'grey', size = .2))
+# 
+# 
+# F1B
 
 
 # FIGURE 2A
@@ -146,41 +146,61 @@ glimpse(sal_no0)
 fit_interact   <- lmer(log_sal ~ time_point_fact * treatment + (1|pignum) , data=sal_no0)      # time is factor
 fit_nointeract <- lmer(log_sal ~ time_point_fact + treatment + (1|pignum) , data=sal_no0)      # time is factor
 
-
-AIC(fit_interact, fit_nointeract)
-anova(fit_interact, fit_nointeract)
-
-summary(fit_interact)
-confint(fit_interact)
-
-confint(fit_nointeract)
-summary(fit_nointeract)
-car::Anova(fit_interact)
-car::Anova(fit_nointeract)
-
+# 
+# AIC(fit_interact, fit_nointeract)
+# anova(fit_interact, fit_nointeract)
+# 
+# summary(fit_interact)
+# confint(fit_interact)
+# 
+# confint(fit_nointeract)
+# summary(fit_nointeract)
+# car::Anova(fit_interact)
+# car::Anova(fit_nointeract)
+# 
 
 # m.emm <- emmeans(fit_nointeract, c("time_point_fact", 'treatment'))
-
-m.emm <-
+library(emmeans)
+contrast.emm <-
   emmeans(fit_interact, ~ treatment | time_point_fact) %>%
   contrast(method='revpairwise') %>%
   tidy(conf.int=TRUE) %>% 
-  mutate(day=factor(time_point_fact, levels = c('2', '7', '14', '21')), 
-         contrast=factor(contrast, levels = c('RPS - control', 'Acid - control', 'RCS - control'))) 
+  mutate(day=factor(time_point_fact, levels = c('0','2', '7', '14', '21')), 
+         contrast=factor(contrast, levels = c('RCS - control', 'Acid - control','RPS - control' ))) 
+
+means.emm <-
+  emmeans(fit_interact, ~ treatment | time_point_fact) %>%
+  tidy(conf.int=TRUE) %>% 
+  mutate(day=factor(time_point_fact, levels = c('0','2', '7', '14', '21'))) %>% 
+  select(-time_point_fact)
+
+D0s <- tibble(treatment=c('control', 'RPS', 'Acid', 'RCS'), 
+              estimate=0, df=126, conf.low=0, conf.high=0, statistic=0, p.value=0, 
+              day=factor(c('0','0','0','0'), levels=c('0', '2', '7', '14', '21')))
+tes <- rbind(D0s, means.emm)
+
+
+rbind(D0s, means.emm) %>% 
+  ggplot(aes(x=as.numeric(as.character(day)), y=estimate, color=treatment, group=treatment)) + geom_point()+
+  geom_pointrange(aes(ymin=conf.low, ymax=conf.high)) + 
+  geom_line()
+
+F1A
+
+F1B <- 
+  contrast.emm %>%
+    filter(grepl('control', contrast)) %>% 
+    ggplot(aes(x=contrast, y=estimate, color=contrast))+
+    geom_point() +
+    geom_hline(yintercept = 0)+
+    geom_pointrange(aes(ymin=conf.low, ymax=conf.high)) +
+    coord_flip()+ 
+    facet_wrap(~day, nrow = 1)+
+    scale_color_manual(values=c('red','orange','#3399FF')) 
 
 
 
-m.emm %>%
-  filter(grepl('control', contrast)) %>% 
-  ggplot(aes(x=contrast, y=estimate, color=contrast))+
-  geom_point() + geom_hline(yintercept = 0)+
-  geom_pointrange(aes(ymin=conf.low, ymax=conf.high)) +
-  coord_flip()+ facet_wrap(~day, nrow = 1)
-
-
-plot(fit_interact)
-plot(fit_nointeract)
-anova(fit_interact, fit_nointeract)
+#### TISSUES ###
 
 
 
@@ -242,17 +262,30 @@ F2B <- AULC_tuk %>% filter(grepl('control', contrast)) %>%
   coord_flip() +
   scale_color_manual(values=c('red','orange','#3399FF')) 
 F2B
-
-
-
-
-hist(sal_no0$log_sal, breaks=100)
-
-
-sal_no0$Salmonella
-sample(1:50, size = 1, replace = TRUE)
-
-
+# 
+# sample(2:50, size = length(sal_no0$Salmonella[sal_no0$Salmonella == 50]), replace = TRUE)
+# 
+# length(sal_no0$Salmonella[sal_no0$Salmonella == 50])
+# 
+# sal_no0$Salmonella[sal_no0$Salmonella == 50] <-sample(1:50, size = length(sal_no0$Salmonella[sal_no0$Salmonella == 50]), replace = TRUE) 
+# 
+# sal_no0$log_sal2 <- log10(sal_no0$Salmonella)
+# 
+# sal_no0$log_sal2[is.infinite(sal_no0$log_sal2)] <- 0
+# 
+# 
+# hist(sal_no0$log_sal2, breaks=100)
+# 
+# scale(sal_no0$log_sal2)
+# 
+# 
+# fit_interact   <- lmer(scale(log_sal2) ~ time_point_fact * treatment + (1|pignum) , data=sal_no0)      # time is factor
+# plot(fit_interact)
+# 
+# sal_no0$Salmonella
+# sample(1:50, size = 1, replace = TRUE)
+# 
+# 
 
 ################################
 # setwd("~/FS12")
@@ -269,26 +302,34 @@ tis <- tis %>% filter(!treatment %in% c('Zn+Cu', 'Bglu'))
 tis$treatment <- factor(tis$treatment, levels = c('control', 'RPS', 'Acid', 'RCS'))
 
 
-# pairwise.wilcox.test(tis$log_sal[tis$tissue == 'cecal_cont'], tis$treatment[tis$tissue == 'cecal_cont'], p.adjust.method = 'none')
-# 
-# pairwise.t.test(tis$log_sal[tis$tissue == 'cecal_cont'], tis$treatment[tis$tissue == 'cecal_cont'], p.adjust.method = 'none')
-# pairwise.t.test(tis$log_sal[tis$tissue == 'Cecum'], tis$treatment[tis$tissue == 'Cecum'], p.adjust.method = 'none')
+
+
+sal_tis21 <- 
+  tis %>%
+  mutate(pignum=factor(pignum), 
+         treatment=factor(treatment, levels = c('control', 'RPS', 'Acid', 'RCS')))
+
+glimpse(sal_tis21)
+
+fit_interact   <- lmer(log_sal ~ tissue * treatment + (1|pignum) , data=sal_tis21)      # time is factor
 
 
 
+### REPLACE FIG3 (TISSUE SHEDDING) WITH THESE
+contrast.emm <-
+  emmeans(fit_interact, ~ treatment | tissue) %>%
+  contrast(method='revpairwise') %>%
+  tidy(conf.int=TRUE) %>% 
+  mutate(contrast=factor(contrast, levels = c('RCS - control', 'Acid - control','RPS - control' ))) 
 
-# tis %>% filter(tissue=='cecal_cont') %>%
-#   ggplot(aes(x=treatment, y=log_sal, group=treatment, fill=treatment)) + geom_boxplot(outlier.alpha = 0)+ geom_jitter(shape=21,width = .1, size=2.25)+
-#   scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + ggtitle('Cecal Contents')
-# 
+means.emm <-
+  emmeans(fit_interact, ~ treatment | tissue) %>%
+  tidy(conf.int=TRUE) 
 
-# tis %>% #filter(tissue=='cecal_cont') %>%
-#   ggplot(aes(x=treatment, y=log_sal, group=treatment, fill=treatment)) +
-#   geom_boxplot(outlier.alpha = 0) +
-#   geom_jitter(shape=21,width = .2, size=2.25) +
-#   facet_wrap(~tissue) +
-#   scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) +
-#   ggtitle('Salmonella colonization at D21, tissues')
+
+#######
+
+
 # 
 
 # tables?

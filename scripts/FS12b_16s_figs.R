@@ -300,6 +300,82 @@ shan_fig <-
 
 shan_fig
 
+
+### Mixed Model stuff ###
+
+shan_dat <- 
+  FS12b@sam_data %>%
+  as_tibble() %>% filter(tissue == 'F') %>% 
+  mutate(treatment = factor(treatment, levels = c('Control', 'RPS', 'Acid', 'RCS')))
+
+
+
+shan_mod <- lmer(data = shan_dat,
+                 formula = shan ~ day * treatment + (1|pignum))
+
+summary(shan_mod)
+
+shan_contrast.emm <- 
+  emmeans(shan_mod, ~ treatment | day) %>%
+  contrast(method='revpairwise') %>%
+  tidy(conf.int=TRUE) %>% 
+  filter(grepl('Control', contrast)) %>% 
+  mutate(day=factor(day, levels = c('D0','D2', 'D7', 'D14', 'D21')), 
+         contrast=factor(contrast, levels = c('RCS - Control', 'Acid - Control','RPS - Control' ))) 
+
+shan_means.emm <-
+  emmeans(shan_mod, ~ treatment | day) %>%
+  tidy(conf.int=TRUE) %>% 
+  mutate(day=factor(day, levels = c('D0','D2', 'D7', 'D14', 'D21')), 
+                    treatment=factor(treatment, levels=c('Control', 'RPS', 'Acid', 'RCS')))
+
+
+
+
+
+
+### Tissues?
+  
+# No diffs  btw treats and controls in any tissue
+# shan_dat <- 
+#   FS12b@sam_data %>%
+#   as_tibble() %>%
+#   filter(tissue != 'F') %>% 
+#   mutate(treatment = factor(treatment, levels = c('Control', 'RPS', 'Acid', 'RCS')), 
+#          tissue = factor(tissue, levels = c('I', 'X', 'C')))
+# 
+# shan_dat$tissue
+# 
+# shan_mod <- lmer(data = shan_dat,
+#                  formula = shan ~ tissue * treatment + (1|pignum))
+# 
+# summary(shan_mod)
+# 
+# shan_contrast.emm <- 
+#   emmeans(shan_mod, ~ treatment | tissue) %>%
+#   contrast(method='revpairwise') %>%
+#   tidy(conf.int=TRUE) %>% 
+#   filter(grepl('Control', contrast)) %>% 
+#   mutate(#day=factor(day, levels = c('D0','D2', 'D7', 'D14', 'D21')), 
+#          contrast=factor(contrast, levels = c('RCS - Control', 'Acid - Control','RPS - Control' ))) 
+# 
+# shan_means.emm <-
+#   emmeans(shan_mod, ~ treatment | day) %>%
+#   tidy(conf.int=TRUE) %>% 
+#   mutate(day=factor(day, levels = c('D0','D2', 'D7', 'D14', 'D21')), 
+#          treatment=factor(treatment, levels=c('Control', 'RPS', 'Acid', 'RCS')))
+# 
+
+
+
+
+
+
+
+
+
+
+
 # #fecal even
 # even_fig <- 
 # FS12b_meta %>%
@@ -397,19 +473,19 @@ shan_fecal_tests %>%
 
 
 # 
-rich_fecal_tests <- 
-  FS12b@sam_data %>%
-  as_tibble()  %>%
-  filter(tissue =='F') %>%
-  group_by(day) %>%
-  nest() %>%
-  mutate(ANOVA = map(data, ~ aov(data=., formula = rich ~ treatment)),
-         TUK   = map(ANOVA, TukeyHSD),
-         tid_tuk=map(TUK, tidy)) %>%
-  select(day, tid_tuk) %>% unnest(cols = c(tid_tuk)) %>% 
-  filter(grepl('Control', contrast))
-
-rich_fecal_tests %>% filter(adj.p.value < 0.05)
+# rich_fecal_tests <- 
+#   FS12b@sam_data %>%
+#   as_tibble()  %>%
+#   filter(tissue =='F') %>%
+#   group_by(day) %>%
+#   nest() %>%
+#   mutate(ANOVA = map(data, ~ aov(data=., formula = rich ~ treatment)),
+#          TUK   = map(ANOVA, TukeyHSD),
+#          tid_tuk=map(TUK, tidy)) %>%
+#   select(day, tid_tuk) %>% unnest(cols = c(tid_tuk)) %>% 
+#   filter(grepl('Control', contrast))
+# 
+# rich_fecal_tests %>% filter(adj.p.value < 0.05)
 
 # 
 # library(lme4)
@@ -1302,7 +1378,7 @@ formula(paste('~', 'log_sal'))
 ##### SHOULD REALLY LOOK INTO INTERACTION WITH TREATMENT HERE!!!!!!!! 
 ### OR SUBSET EACH TREATMENT
 
-blarg <- function(phyloseq_obj, day, tissue, covariate, shrink_type='apeglm', cookscut=TRUE){
+blarg_treat <- function(phyloseq_obj, day, tissue, covariate, shrink_type='apeglm', cookscut=TRUE){
   form <- formula(paste('~', covariate, '+ treatment'))
   # print(form)
   # browser()
@@ -1353,6 +1429,56 @@ blarg <- function(phyloseq_obj, day, tissue, covariate, shrink_type='apeglm', co
   
 }
 
+blarg_notreat <- function(phyloseq_obj, day, tissue, covariate, shrink_type='apeglm', cookscut=TRUE){
+  form <- formula(paste('~', covariate))
+  # print(form)
+  # browser()
+  FS12b.glom <- phyloseq_obj %>%
+    prune_samples(samples = phyloseq_obj@sam_data$day %in% c(day) & phyloseq_obj@sam_data$tissue == tissue & !is.na(phyloseq_obj@sam_data[[covariate]]))
+  FS12b.glom@sam_data[[covariate]] <- scale(FS12b.glom@sam_data[[covariate]])
+  FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
+  
+  # FS12b.glom@sam_data$log_sal
+  
+  FS12b.de <- phyloseq_to_deseq2(FS12b.glom, form)
+  FS12b.de <- DESeq(FS12b.de, test = 'Wald', fitType = 'parametric')
+  
+  # these are not both possible.  Right now only lfcshrink is doing anytihng
+  # res <- results(FS12b.de, cooksCutoff = FALSE, name = covariate)
+  res <- results(FS12b.de, name=covariate, cooksCutoff = cookscut)
+  sigtab <- lfcShrink(dds = FS12b.de, res=res, coef = covariate, type = shrink_type)
+  
+  # browser()
+  # resultsNames(FS12b.de)
+  
+  
+  # res <- res[!is.na(res$padj),]
+  # res <- res[res$padj < 0.1,]
+  # sigtab <- res[abs(res$log2FoldChange) > .1 ,]
+  sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(phyloseq_obj)[rownames(sigtab), ], "matrix"))
+  sigtab$newp <- format(round(sigtab$padj, digits = 3), scientific = TRUE)
+  # sigtab$Treatment <- ifelse(sigtab$log2FoldChange >=0, treat, paste('down',treat, sep = '_'))
+  sigtab$OTU <- rownames(sigtab)
+  sigtab[['direction']] <- ifelse(sigtab$log2FoldChange > 0 , 'increased', 'decreased')
+  # sigtab$salm <- ifelse(sigtab$log2FoldChange >0 , 'increased', 'decreased')
+  sigtab <- sigtab[order(sigtab$log2FoldChange),]
+  sigtab$OTU <- factor(sigtab$OTU, levels = sigtab$OTU)
+  sigtab$day <- day
+  sigtab$tissue <- tissue
+  sigtab[['covariate']] <- covariate
+  
+  fig_tit <- paste(covariate, 'associations with OTUs')
+  
+  p <- sigtab %>% 
+    filter(padj < 0.05) %>% 
+    ggplot(aes_string(x='OTU', y='log2FoldChange', fill='direction')) +
+    geom_col(color='black') + coord_flip() + geom_text(aes(label=Genus, y=0)) + 
+    ggtitle(fig_tit)
+  
+  return(list(p, sigtab))
+  
+  
+}
 
 
 
