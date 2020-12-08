@@ -12,17 +12,22 @@ library(cowplot)
 ### write out the calcs and then read back in in figures script.
 
 
-OTU <- read_tsv('./data/FS12b_OTU.tsv') %>%
-  column_to_rownames(var='sample_ID') %>%
-  as.matrix() %>% 
-  otu_table(taxa_are_rows = FALSE)
+# OTU <- 
+#   read_tsv('./data/FS12b_OTU.tsv') %>%
+#   column_to_rownames(var='Group') %>%
+#   as.matrix() %>% 
+#   otu_table(taxa_are_rows = FALSE)
+OTU <- phyloseq::import_mothur(mothur_shared_file = './raw_data/NEW_MOTHUR_OUT/FS12b.shared') %>% t()
 
+TAX <- phyloseq::import_mothur(mothur_constaxonomy_file = './raw_data/NEW_MOTHUR_OUT/FS12b_OTU.taxonomy')
+colnames(TAX) <- c('Domain', 'Phylum', 'Class', 'Order', 'Family' , 'Genus' )
 
-TAX <- read_tsv('./data/FS12b_tax.tsv') %>%
-  column_to_rownames(var = 'OTU') %>%
-  as.matrix() %>% 
-  tax_table()
-
+# 
+# TAX <- 
+#   read_tsv('./raw_data/NEW_MOTHUR_OUT/FS12b_OTU.taxonomy') %>%
+#   column_to_rownames(var = 'OTU') %>%
+#   as.matrix() %>% 
+#   tax_table()
 
 MET <- read_tsv('./data/FS12b_meta.tsv') %>%
   mutate(ID=sample_ID) %>%
@@ -35,6 +40,10 @@ FS12b <- phyloseq(MET, TAX, OTU)
 
 ###
 
+FS12b <- prune_taxa(taxa_sums(FS12b) > 5, FS12b)
+
+min(sample_sums(FS12b))
+hist(sample_sums(FS12b), breaks=100)
 
 
 ### Ordinations ###
@@ -229,7 +238,7 @@ FS12b <- phyloseq(MET, TAX, OTU)
 ### ALPHA AND DISPERSION ###
 
 
-
+FS12b@otu_table
 FS12b_jac <- vegdist(rarefy_even_depth(FS12b)@otu_table, method = 'bray')
 # FS12b_jac
 
@@ -302,6 +311,9 @@ shan_fig
 
 
 ### Mixed Model stuff ###
+library(lme4)
+library(lmerTest)
+library(emmeans)
 
 shan_dat <- 
   FS12b@sam_data %>%
@@ -321,7 +333,9 @@ shan_contrast.emm <-
   tidy(conf.int=TRUE) %>% 
   filter(grepl('Control', contrast)) %>% 
   mutate(day=factor(day, levels = c('D0','D2', 'D7', 'D14', 'D21')), 
-         contrast=factor(contrast, levels = c('RCS - Control', 'Acid - Control','RPS - Control' ))) 
+         contrast=factor(contrast, levels = c('RCS - Control', 'Acid - Control','RPS - Control' )), 
+         pval=round(adj.p.value, digits = 3), 
+         p.plot=ifelse(pval < 0.05, pval, NA)) 
 
 shan_means.emm <-
   emmeans(shan_mod, ~ treatment | day) %>%
@@ -329,10 +343,28 @@ shan_means.emm <-
   mutate(day=factor(day, levels = c('D0','D2', 'D7', 'D14', 'D21')), 
                     treatment=factor(treatment, levels=c('Control', 'RPS', 'Acid', 'RCS')))
 
+shan_means.emm %>% 
+ggplot(aes(x=as.numeric(sub('D','',day)), y=estimate, color=treatment)) +
+  geom_point(size=3) + 
+  geom_errorbar(aes(ymin=conf.low, ymax=conf.high), width=.2)+
+  geom_line(aes(group=treatment), size=1) + 
+  scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
+  theme_cowplot() + xlab('Day') + 
+  ylab('Shannon index') 
 
 
 
-
+shan_contrast.emm %>% 
+  ggplot(aes(x=contrast, y=estimate, ymin=conf.low, ymax=conf.high, color=contrast)) +
+  geom_pointrange() + 
+  geom_text(aes(label=p.plot, y=-.3), nudge_x = .2)+
+  geom_hline(yintercept = 0)+
+  coord_flip()+
+  ylim(-1,1)+
+  facet_wrap(~day, nrow = 1) + 
+  ylab('Estimated difference in mean vs controls') + 
+  scale_color_manual(values=c('red', 'orange','#3399FF', 'red', 'grey', 'purple'))
+  
 
 ### Tissues?
   
@@ -1079,7 +1111,7 @@ D21$day <- 21
 # I think fin and goods are the same thing right now.... why did I do this again?
 fin <- rbind(D0, D2, D7, D14, D21)
 
-fin$pairs <- gsub('X12b_', '', fin$pairs)
+# fin$pairs <- gsub('X12b_', '', fin$pairs)
 fin$pairs <- gsub('_F_', ' feces ', fin$pairs)
 fin$pairs <- gsub('_C_', ' cec_cont ', fin$pairs)
 fin$pairs <- gsub('_X_', ' cec_muc ', fin$pairs)
@@ -1097,8 +1129,8 @@ to_conts <- fin[grep('Control', fin$pairs),]
 
 not_conts <- fin[-grep('Control', fin$pairs),]
 
-to_conts$tissue <- gsub('[0-9]+ (.*) ([A-Za-z_]+) vs [0-9]+ .* ([A-Za-z]+)', '\\1', to_conts$pairs)
-to_conts$treatment <- gsub('[0-9]+ .* ([A-Za-z_]+) vs [0-9]+ .* ([A-Za-z]+)', '\\2', to_conts$pairs)
+to_conts$tissue <- gsub('D[0-9]+ (.*) ([A-Za-z_]+) vs D[0-9]+ .* ([A-Za-z]+)', '\\1', to_conts$pairs)
+to_conts$treatment <- gsub('D[0-9]+ .* ([A-Za-z_]+) vs D[0-9]+ .* ([A-Za-z]+)', '\\2', to_conts$pairs)
 
 
 to_conts$p.fdr <- p.adjust(to_conts$p.value, method = 'fdr')
@@ -1231,17 +1263,17 @@ highlow_DESEQ <-
 # 
 RPS_split_master <- 
   bind_rows(
-  highlow_DESEQ(FS12_RPS, day = 0, tissue = 'F', shrinktype = 'apeglm', cookscutoff = TRUE),
-  highlow_DESEQ(FS12_RPS, day = 2, tissue = 'F', shrinktype = 'apeglm', cookscutoff = TRUE),
-  highlow_DESEQ(FS12_RPS, day = 7, tissue = 'F', shrinktype = 'apeglm', cookscutoff = TRUE),
-  highlow_DESEQ(FS12_RPS, day = 14, tissue = 'F', shrinktype = 'apeglm', cookscutoff = TRUE),
-  highlow_DESEQ(FS12_RPS, day = 21, tissue = 'F', shrinktype = 'apeglm', cookscutoff = TRUE),
-  highlow_DESEQ(FS12_RPS, day = 21, tissue = 'X', shrinktype = 'apeglm', cookscutoff = TRUE),
-  highlow_DESEQ(FS12_RPS, day = 21, tissue = 'C', shrinktype = 'apeglm', cookscutoff = TRUE),
-  highlow_DESEQ(FS12_RPS, day = 21, tissue = 'I', shrinktype = 'apeglm', cookscutoff = TRUE))
+  highlow_DESEQ(FS12_RPS, day = 'D0', tissue = 'F', shrinktype = 'apeglm', cookscutoff = TRUE),
+  highlow_DESEQ(FS12_RPS, day = 'D2', tissue = 'F', shrinktype = 'apeglm', cookscutoff = TRUE),
+  highlow_DESEQ(FS12_RPS, day = 'D7', tissue = 'F', shrinktype = 'apeglm', cookscutoff = TRUE),
+  highlow_DESEQ(FS12_RPS, day = 'D14', tissue = 'F', shrinktype = 'apeglm', cookscutoff = TRUE),
+  highlow_DESEQ(FS12_RPS, day = 'D21', tissue = 'F', shrinktype = 'apeglm', cookscutoff = TRUE),
+  highlow_DESEQ(FS12_RPS, day = 'D21', tissue = 'X', shrinktype = 'apeglm', cookscutoff = TRUE),
+  highlow_DESEQ(FS12_RPS, day = 'D21', tissue = 'C', shrinktype = 'apeglm', cookscutoff = TRUE),
+  highlow_DESEQ(FS12_RPS, day = 'D21', tissue = 'I', shrinktype = 'apeglm', cookscutoff = TRUE))
 
 # library(IHW)
-ihwRes <- IHW::ihw(pvalue ~ baseMean,  data = RPS_split_master, alpha = 0.1)
+ihwRes <- IHW::ihw(pvalue ~ baseMean,  data = RPS_split_master, alpha = 0.05)
 
 
 RPS_split_master$IHW_pval <- IHW::adj_pvalues(ihwRes)
@@ -1252,7 +1284,7 @@ RPS_split_master <- RPS_split_master %>% filter(IHW_pval < 0.1 & abs(log2FoldCha
 
 RPS_split_master$imp <- ifelse(RPS_split_master$IHW_pval <= 0.05, TRUE, FALSE)
 RPS_split_master$set <- paste(RPS_split_master$day, RPS_split_master$tissue, sep = '_')
-RPS_split_master$set <- factor(RPS_split_master$set, levels = c('0_F','2_F' ,'7_F', '14_F', '21_F', '21_C', '21_X', '21_I'))
+RPS_split_master$set <- factor(RPS_split_master$set, levels = c('D0_F','D2_F' ,'D7_F', 'D14_F', 'D21_F', 'D21_C', 'D21_X', 'D21_I'))
 RPS_split_master$newp <- signif(RPS_split_master$IHW_pval, digits = 2)
 RPS_split_master <- RPS_split_master %>% mutate(newp2=paste0('p=', newp))
 # devtools::install_github('jtrachsel/ggscinames')

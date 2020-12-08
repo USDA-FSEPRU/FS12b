@@ -11,16 +11,61 @@ MET <- read_tsv('./data/FS12b_meta.tsv') %>%
   column_to_rownames(var='sample_ID') %>% 
   sample_data()
 
-descripts <- read_tsv('./data/no_rare_path_abun_unstrat_descrip.tsv') %>% 
+
+# 
+# descripts <- read_tsv('./data/no_rare_path_abun_unstrat_descrip.tsv') %>% 
+#   select(pathway, description)
+# 
+# countData <-
+#   read_tsv('./data/no_rare_path_abun_unstrat_descrip.tsv') %>% 
+#   select(pathway, MET$ID) %>% 
+#   column_to_rownames(var = 'pathway') %>%
+#   floor()
+# 
+
+####
+
+
+# pathways
+descripts <- read_tsv('./data/FS12b_path_descrip.tsv') %>% 
   select(pathway, description)
 
 
-
 countData <-
-  read_tsv('./data/no_rare_path_abun_unstrat_descrip.tsv') %>% 
+  read_tsv('./data/FS12b_path_descrip.tsv') %>% 
   select(pathway, MET$ID) %>% 
   column_to_rownames(var = 'pathway') %>%
   floor()
+
+
+
+# # KO
+# descripts <- read_tsv('./data/KO_pred_metagenome_descript.tsv') %>% 
+#   transmute(KO=`function`,description=description)
+# 
+# 
+# countData <-
+#   read_tsv('./data/KO_pred_metagenome_descript.tsv') %>% 
+#   select(`function`, MET$ID) %>% 
+#   column_to_rownames(var = 'function') %>%
+#   floor()
+# 
+# 
+# # EC
+# descripts <- read_tsv('./data/EC_pred_metagenome_unstrat_decrip.tsv') %>% 
+#   transmute(KO=`function`,description=description)
+# 
+# 
+# countData <-
+#   read_tsv('./data/EC_pred_metagenome_unstrat_decrip.tsv') %>% 
+#   select(`function`, MET$ID) %>% 
+#   column_to_rownames(var = 'function') %>%
+#   floor()
+# 
+
+
+
+####
 
 hist(rowSums(countData), breaks=100)
 hist(rowSums(countData > 5), breaks = 100)
@@ -42,8 +87,56 @@ hist(sample_sums(picrust_phylo), breaks = 1000)
 
 picrust_phylo@sam_data$ID
 
+#
+KO_difabund <- 
+  function(phyloseq, tissue, day, descripts, pval=0.05, l2fc=.25){
+    deseq_obj <- 
+      phyloseq %>%
+      prune_samples(samples = phyloseq@sam_data$tissue ==tissue &
+                      phyloseq@sam_data$day ==day) %>% 
+      prune_taxa(taxa = taxa_sums(phyloseq) > 5) %>% 
+      phyloseq_to_deseq2(design = ~ treatment) %>%
+      DESeq()
+    
+    res <- 
+      lfcShrink(deseq_obj, coef = which(resultsNames(deseq_obj) == 'treatment_RPS_vs_Control')) %>% 
+      as.data.frame() %>% 
+      filter(padj < pval & abs(log2FoldChange) > l2fc) %>% 
+      rownames_to_column(var = 'KO') %>% 
+      left_join(descripts) %>% 
+      mutate(KO=fct_reorder(KO, log2FoldChange), 
+             tissue= tissue, 
+             day=day)
+    
+    which(resultsNames(deseq_obj) == 'treatment_RPS_vs_Control')
+    # res <- 
+    #   results(deseq_obj, name = "treatment_RPS_vs_Control") %>%
+    #   as.data.frame() %>% 
+    #   filter(padj < pval & abs(log2FoldChange) > l2fc) %>% 
+    #   rownames_to_column(var = 'pathway') %>% 
+    #   left_join(descripts) %>% 
+    #   mutate(pathway=fct_reorder(pathway, log2FoldChange), 
+    #          tissue= tissue, 
+    #          day=day)
+    
+    
+    
+    p1 <-
+      res %>%
+      ggplot(aes(x=log2FoldChange, y=KO)) +
+      geom_col() +
+      geom_text(aes(x=0, label=description)) +
+      xlim(-10, 10)
+    
+    return(list(res, p1))
+    
+  }
+
+
+#
+
 picrust_difabund <- 
-function(phyloseq, tissue, day, descripts, pval=0.05, l2fc=.5){
+function(phyloseq, tissue, day, descripts, pval=0.05, l2fc=.25){
   deseq_obj <- 
     phyloseq %>%
     prune_samples(samples = phyloseq@sam_data$tissue ==tissue &
@@ -52,10 +145,8 @@ function(phyloseq, tissue, day, descripts, pval=0.05, l2fc=.5){
     phyloseq_to_deseq2(design = ~ treatment) %>%
     DESeq()
   
-  
-  
   res <- 
-    results(deseq_obj, name = "treatment_RPS_vs_Control") %>%
+    lfcShrink(deseq_obj, coef = which(resultsNames(deseq_obj) == 'treatment_RPS_vs_Control')) %>% 
     as.data.frame() %>% 
     filter(padj < pval & abs(log2FoldChange) > l2fc) %>% 
     rownames_to_column(var = 'pathway') %>% 
@@ -63,6 +154,17 @@ function(phyloseq, tissue, day, descripts, pval=0.05, l2fc=.5){
     mutate(pathway=fct_reorder(pathway, log2FoldChange), 
            tissue= tissue, 
            day=day)
+  
+  which(resultsNames(deseq_obj) == 'treatment_RPS_vs_Control')
+  # res <- 
+  #   results(deseq_obj, name = "treatment_RPS_vs_Control") %>%
+  #   as.data.frame() %>% 
+  #   filter(padj < pval & abs(log2FoldChange) > l2fc) %>% 
+  #   rownames_to_column(var = 'pathway') %>% 
+  #   left_join(descripts) %>% 
+  #   mutate(pathway=fct_reorder(pathway, log2FoldChange), 
+  #          tissue= tissue, 
+  #          day=day)
   
   
   
@@ -88,6 +190,35 @@ RPS_vs_control_picrust <- list(
   picrust_difabund(picrust_phylo, tissue = 'C', day = 'D21', descripts = descripts),
   picrust_difabund(picrust_phylo, tissue = 'I', day = 'D21', descripts = descripts))
 
+RPS_vs_control_KO <- list(
+  KO_difabund(picrust_phylo, tissue='F', day='D0', descripts = descripts),
+  KO_difabund(picrust_phylo, tissue='F', day='D2', descripts = descripts),
+  KO_difabund(picrust_phylo, tissue='F', day='D7', descripts = descripts),
+  KO_difabund(picrust_phylo, tissue='F', day='D14', descripts = descripts),
+  KO_difabund(picrust_phylo, tissue='F', day='D21', descripts = descripts),
+  KO_difabund(picrust_phylo, tissue='X', day='D21', descripts = descripts),
+  KO_difabund(picrust_phylo, tissue='C', day='D21', descripts = descripts),
+  KO_difabund(picrust_phylo, tissue='I', day='D21', descripts = descripts))
+
+CONTROL_VS_RPS_KO <- bind_rows(lapply(RPS_vs_control_KO, '[[', 1)) %>% 
+  mutate(day=factor(day, levels = c('D0', 'D2', 'D7', 'D14', 'D21')), 
+         KO=fct_reorder(KO, log2FoldChange), 
+         description=fct_reorder(description, log2FoldChange))
+
+
+CONTROL_VS_RPS_KO %>% filter(day == 'D14') %>% 
+  arrange(desc(log2FoldChange)) %>% 
+  ggplot(aes(x=KO, y=log2FoldChange)) +
+  geom_hline(yintercept = 0)+
+  geom_text(aes(label=description, y=0)) +
+  geom_point(aes(color=day, shape=tissue)) +
+  coord_flip() + 
+  scale_color_brewer(palette = 'Set1') +
+  # facet_wrap(~ptype, scales = 'free_y', ncol = 1) + 
+  theme(panel.grid.major = element_line(color='grey'))
+
+
+
 
 
 CONTROL_VS_RPS_PICRUST <- bind_rows(lapply(RPS_vs_control_picrust, '[[', 1)) %>% 
@@ -98,7 +229,7 @@ CONTROL_VS_RPS_PICRUST <- bind_rows(lapply(RPS_vs_control_picrust, '[[', 1)) %>%
                       ifelse(grepl('degradation', description), 'degradation', 'other')))
 
 
-write_tsv(CONTROL_VS_RPS_PICRUST, './output/Control_vs_RPS_picrust.tsv')
+# write_tsv(CONTROL_VS_RPS_PICRUST, './output/Control_vs_RPS_picrust.tsv')
 
 CONTROL_VS_RPS_PICRUST %>% filter(ptype == 'other')
 
@@ -106,12 +237,31 @@ CONTROL_VS_RPS_PICRUST %>% filter(ptype == 'other')
 CONTROL_VS_RPS_PICRUST %>% #filter(tissue =='F') %>% 
   arrange(desc(log2FoldChange)) %>% 
   ggplot(aes(x=description, y=log2FoldChange)) +
+  geom_hline(yintercept = 0)+
   # geom_text(aes(label=description, y=0)) +
   geom_point(aes(color=day, shape=tissue)) + coord_flip() + 
   scale_color_brewer(palette = 'Set1') +
-  facet_wrap(~ptype, scales = 'free_y', ncol = 1)
+  facet_wrap(~ptype, scales = 'free_y', ncol = 1) + 
+  theme(panel.grid.major = element_line(color='grey'))
 
-CONTROL_VS_RPS_PICRUST %>% filter(ptype =='degradation') %>% 
+
+
+CONTROL_VS_RPS_PICRUST %>% filter(tissue !='F') %>% 
+  arrange(desc(log2FoldChange)) %>% 
+  ggplot(aes(x=description, y=log2FoldChange)) +
+  geom_hline(yintercept = 0)+
+  # geom_text(aes(label=description, y=0)) +
+  geom_point(aes(color=day, shape=tissue)) + coord_flip() + 
+  scale_color_brewer(palette = 'Set1') +
+  facet_wrap(~ptype, scales = 'free_y', ncol = 1) + 
+  theme(panel.grid.major = element_line(color='grey'))
+
+
+
+
+
+
+CONTROL_VS_RPS_PICRUST %>% filter(ptype =='other') %>% 
   arrange(desc(log2FoldChange)) %>% 
   ggplot(aes(x=description, y=log2FoldChange)) +
   # geom_text(aes(label=description, y=0)) +
@@ -177,16 +327,16 @@ res %>% ggplot(aes(x=log2FoldChange, y=pathway)) + geom_col() +
   geom_text(aes(x=0, label=description)) + xlim(-10, 10)
 
 
-library(DESeq2)
-
-pic_path_met <- 
-  PICPATH %>%
-  pivot_longer(names_to = 'ID', cols = starts_with('X')) %>% 
-  pivot_wider(names_from = pathway) %>% left_join(MET)
-
-
-pic_path_met
-
+# library(DESeq2)
+# 
+# pic_path_met <- 
+#   PICPATH %>%
+#   pivot_longer(names_to = 'ID', cols = starts_with('X')) %>% 
+#   pivot_wider(names_from = pathway) %>% left_join(MET)
+# 
+# 
+# pic_path_met
+# 
 
 
 
@@ -252,10 +402,60 @@ highlow_picrust <-
 
 
 
-highlow_picrust(FS12b_HL, tissue = 'F', day = 'D21', descripts = descripts, pval = 0.05)
+
+highlow_KO <- 
+  function(phylo_obj, tissue, day, pval = 0.05, descripts){
+    deseq_obj <- 
+      phylo_obj %>%
+      prune_samples(samples = phylo_obj@sam_data$tissue ==tissue &
+                      phylo_obj@sam_data$day ==day) %>% 
+      prune_taxa(taxa = taxa_sums(phylo_obj) > 5) %>% 
+      phyloseq_to_deseq2(design = ~ shed) %>%
+      DESeq()
+    
+    
+    
+    # deseq_obj
+    
+    
+    
+    # deseq_obj <- DESeq(deseq_obj)
+    
+    resultsNames(deseq_obj)
+    
+    
+    # lfcShrink(dds = deseq_obj, coef = 2)
+    
+    res <- 
+      lfcShrink(dds = deseq_obj, coef = 2) %>%
+      as.data.frame() %>% 
+      filter(padj < pval & abs(log2FoldChange) > 1) %>% 
+      rownames_to_column(var = 'KO') %>% 
+      left_join(descripts) %>% 
+      mutate(KO=fct_reorder(KO, log2FoldChange))
+    
+    # print(plotCounts(deseq_obj, gene='PWY-3781', intgroup = 'shed'))
+    print(nrow(res))
+    if (nrow(res) < 1){
+      stop('no sigs')
+    }
+    
+    
+    
+    p1 <- 
+      res %>% ggplot(aes(x=log2FoldChange, y=KO)) + geom_col() + 
+      geom_text(aes(x=0, label=description)) + xlim(-10, 10)
+    return(list(p1, res))
+  }
 
 
+highlow_KO(FS12b_HL, tissue = 'F', day = 'D7', descripts = descripts, pval = 0.05)
 
+
+highlow_picrust(FS12b_HL, tissue = 'F', day = 'D7', descripts = descripts, pval = 0.05)
+
+
+read_tsv('./data/FS12b_path_descrip.tsv')
 
 HL_phylo <- 
   FS12b_HL %>%
