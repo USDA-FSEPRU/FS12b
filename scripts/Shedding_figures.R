@@ -224,7 +224,8 @@ sum_sal$treatment <- factor(sum_sal$treatment, levels = c('control', 'RPS', 'Aci
 
 F2A <- filter(sum_sal, pignum !=101) %>% 
   ggplot(aes(x=treatment, y=AULC, fill=treatment))+
-  geom_boxplot(outlier.alpha = 0) +
+  geom_boxplot(outlier.alpha = 0) + 
+  geom_text(aes(label=pignum))+
   geom_jitter(aes(fill=treatment), shape=21, size=1.75, stroke=1, width = .13) +
   scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) +
   # ggtitle('Cumulative Salmonella shedding (AULC)', subtitle = 'ANOVA P = 0.0123') +

@@ -291,23 +291,23 @@ FS12b@sam_data$even <- FS12b@sam_data$shan/log(FS12b@sam_data$rich)
 
 
 # OR 
-shan_fig <- 
-  FS12b@sam_data %>%
-  as_tibble() %>% 
-  filter(tissue == 'F') %>%
-  group_by(treatment, day) %>% 
-  summarise(shannon = mean(shan), 
-            stder   = sd(shan)/sqrt(n())) %>% 
-  ggplot(aes(x=as.numeric(sub('D','',day)), y=shannon, color=treatment)) +
-  geom_point(size=3) + 
-  geom_errorbar(aes(ymin=shannon - stder, ymax=shannon + stder), width=.2)+
-  geom_line(aes(group=treatment), size=1) + 
-  scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
-  theme_cowplot() + xlab('Day') + 
-  ylab('Shannon index') 
-
-
-shan_fig
+# shan_fig <- 
+#   FS12b@sam_data %>%
+#   as_tibble() %>% 
+#   filter(tissue == 'F') %>%
+#   group_by(treatment, day) %>% 
+#   summarise(shannon = mean(shan), 
+#             stder   = sd(shan)/sqrt(n())) %>% 
+#   ggplot(aes(x=as.numeric(sub('D','',day)), y=shannon, color=treatment)) +
+#   geom_point(size=3) + 
+#   geom_errorbar(aes(ymin=shannon - stder, ymax=shannon + stder), width=.2)+
+#   geom_line(aes(group=treatment), size=1) + 
+#   scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
+#   theme_cowplot() + xlab('Day') + 
+#   ylab('Shannon index') 
+# 
+# 
+# shan_fig
 
 
 ### Mixed Model stuff ###
@@ -335,7 +335,7 @@ shan_contrast.emm <-
   mutate(day=factor(day, levels = c('D0','D2', 'D7', 'D14', 'D21')), 
          contrast=factor(contrast, levels = c('RCS - Control', 'Acid - Control','RPS - Control' )), 
          pval=round(adj.p.value, digits = 3), 
-         p.plot=ifelse(pval < 0.05, pval, NA)) 
+         p.plot=ifelse(pval < 0.1, pval, NA)) 
 
 shan_means.emm <-
   emmeans(shan_mod, ~ treatment | day) %>%
@@ -343,18 +343,21 @@ shan_means.emm <-
   mutate(day=factor(day, levels = c('D0','D2', 'D7', 'D14', 'D21')), 
                     treatment=factor(treatment, levels=c('Control', 'RPS', 'Acid', 'RCS')))
 
-shan_means.emm %>% 
-ggplot(aes(x=as.numeric(sub('D','',day)), y=estimate, color=treatment)) +
+shanfig1 <- 
+  shan_means.emm %>% 
+  ggplot(aes(x=as.numeric(sub('D','',day)), y=estimate, color=treatment)) +
   geom_point(size=3) + 
   geom_errorbar(aes(ymin=conf.low, ymax=conf.high), width=.2)+
   geom_line(aes(group=treatment), size=1) + 
   scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
   theme_cowplot() + xlab('Day') + 
-  ylab('Shannon index') 
+  ylab('Shannon index')  + 
+  theme(legend.position = 'bottom')
 
 
 
-shan_contrast.emm %>% 
+shanfig2 <- 
+  shan_contrast.emm %>% 
   ggplot(aes(x=contrast, y=estimate, ymin=conf.low, ymax=conf.high, color=contrast)) +
   geom_pointrange() + 
   geom_text(aes(label=p.plot, y=-.3), nudge_x = .2)+
@@ -363,8 +366,19 @@ shan_contrast.emm %>%
   ylim(-1,1)+
   facet_wrap(~day, nrow = 1) + 
   ylab('Estimated difference in mean vs controls') + 
-  scale_color_manual(values=c('red', 'orange','#3399FF', 'red', 'grey', 'purple'))
+  scale_color_manual(values=c('red', 'orange','#3399FF', 'red', 'grey', 'purple')) + 
+  theme_cowplot()+
+  theme(legend.position = 'none')
   
+
+
+shan_fig <- 
+  ggdraw()+
+  draw_plot(shanfig1, 0,.4,1, .6) + 
+  draw_plot(shanfig2, 0,0,1, .4)+
+  draw_plot_label(x=c(0,0), y=c(1,.5), label = c('A', 'B'))
+
+
 
 ### Tissues?
   
@@ -461,41 +475,41 @@ shan_contrast.emm %>%
 #   ggplot(aes(x=day, y=rich, group=pignum, color=treatment)) +
 #   geom_line() + geom_point()
 
-
-disper_fecal_tests <-
-  FS12b@sam_data %>%
-  as_tibble()  %>%
-  filter(tissue =='F') %>%
-  group_by(day) %>% 
-  nest() %>%
-  mutate(ANOVA = map(data, ~ aov(data=., formula = disper_dist ~ treatment)), 
-         TUK   = map(ANOVA, TukeyHSD), 
-         tid_tuk=map(TUK, tidy)) %>%
-  select(day, tid_tuk) %>% unnest(cols = c(tid_tuk))# %>% select(day, starts_with('control'))
-
-disper_fecal_tests %>% filter(grepl('Control', contrast)) %>% 
-  filter(adj.p.value < 0.05)
-
+# 
+# disper_fecal_tests <-
+#   FS12b@sam_data %>%
+#   as_tibble()  %>%
+#   filter(tissue =='F') %>%
+#   group_by(day) %>% 
+#   nest() %>%
+#   mutate(ANOVA = map(data, ~ aov(data=., formula = disper_dist ~ treatment)), 
+#          TUK   = map(ANOVA, TukeyHSD), 
+#          tid_tuk=map(TUK, tidy)) %>%
+#   select(day, tid_tuk) %>% unnest(cols = c(tid_tuk))# %>% select(day, starts_with('control'))
+# 
+# disper_fecal_tests %>% filter(grepl('Control', contrast)) %>% 
+#   filter(adj.p.value < 0.05)
+# 
 
 # 
 # words for results paragraph:
 # RPS sourced fecal communities had lower shannon diversity index on days 0 14 and 21
 # Acid lower on D0
-
-shan_fecal_tests <- 
-  FS12b@sam_data %>%
-  as_tibble()  %>%
-  filter(tissue =='F') %>%
-  group_by(day) %>% 
-  nest() %>%
-  mutate(ANOVA = map(data, ~ aov(data=., formula = shan ~ treatment)), 
-         TUK   = map(ANOVA, TukeyHSD), 
-         tid_tuk=map(TUK, tidy)) %>%
-  select(day, tid_tuk) %>% unnest(cols = c(tid_tuk))
-
-shan_fecal_tests %>%
-  filter(grepl('Control', contrast)) %>% 
-  filter(adj.p.value < 0.05)
+# 
+# shan_fecal_tests <- 
+#   FS12b@sam_data %>%
+#   as_tibble()  %>%
+#   filter(tissue =='F') %>%
+#   group_by(day) %>% 
+#   nest() %>%
+#   mutate(ANOVA = map(data, ~ aov(data=., formula = shan ~ treatment)), 
+#          TUK   = map(ANOVA, TukeyHSD), 
+#          tid_tuk=map(TUK, tidy)) %>%
+#   select(day, tid_tuk) %>% unnest(cols = c(tid_tuk))
+# 
+# shan_fecal_tests %>%
+#   filter(grepl('Control', contrast)) %>% 
+#   filter(adj.p.value < 0.05)
 
 
 
@@ -622,6 +636,9 @@ PW.ad <- pairwise.adonis(x=data.frame(FS12b_rare@otu_table), factors = FS12b_rar
 
 adonis(data.frame(FS12b_rare@otu_table) ~ day + treatment, data = data.frame(FS12b_rare@sam_data))
 
+rownames(data.frame(FS12b_rare@otu_table)) == rownames(data.frame(FS12b_rare@sam_data))
+
+
 
 
 #######
@@ -706,15 +723,13 @@ FIG3A <-
   # ggtitle('Community differences compared to control group over time', subtitle = )
 FIG3A
 
-FIG3B <- shan_fig + theme(panel.grid.major  = element_line(color='grey'), 
-                          legend.position = 'bottom')
+FIG3B <- shan_fig 
 
-# 
-# fig_3 <- ggdraw()+
-#   draw_plot(FIG3A, 0,.45,1,.55)+
-#   draw_plot(FIG3B, 0,0,1,.45)+
-#   draw_plot_label(x=c(0,0), y=c(1,.45), label = c('A', 'B'))
-# fig_3
+fig_3 <- ggdraw()+
+  draw_plot(FIG3A, 0,.45,1,.55)+
+  draw_plot(FIG3B, 0,0,1,.45)+
+  draw_plot_label(x=c(0,0), y=c(1,.45), label = c('A', 'B'))
+fig_3
 # 
 # 
 # ggsave(fig_3,
@@ -769,9 +784,9 @@ FIG3B <- shan_fig + theme(panel.grid.major  = element_line(color='grey'),
 
 # regular Differential abundance 
 
+# FS12b_genus <- FS12b %>% tax_glom(taxrank = 'Genus')
 
-
-
+rank_names(FS12b)
 # NEED TO SET FACTOR LEVELS FOR TREATMENTS
 FS12b@sam_data$treatment
 FS12b@sam_data$day
@@ -785,21 +800,50 @@ tocont <- list(DESeq_difabund(phyloseq = FS12b, day = 'D0', tissue = 'F', scient
                DESeq_difabund(phyloseq = FS12b, day = 'D21', tissue = 'X', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
                DESeq_difabund(phyloseq = FS12b, day = 'D21', tissue = 'I', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'))
 
-
-
+# tocont_genus <- list(DESeq_difabund(phyloseq = FS12b_genus, day = 'D0', tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
+#                # DESeq_difabund(phyloseq = FS12b, day = 'D0', tissue = 'Q', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
+#                DESeq_difabund(phyloseq = FS12b_genus, day = 'D2', tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
+#                DESeq_difabund(phyloseq = FS12b_genus, day = 'D7', tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
+#                DESeq_difabund(phyloseq = FS12b_genus, day = 'D14', tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
+#                DESeq_difabund(phyloseq = FS12b_genus, day = 'D21', tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
+#                DESeq_difabund(phyloseq = FS12b_genus, day = 'D21', tissue = 'C', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
+#                DESeq_difabund(phyloseq = FS12b_genus, day = 'D21', tissue = 'X', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
+#                DESeq_difabund(phyloseq = FS12b_genus, day = 'D21', tissue = 'I', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'))
+# 
+# 
+# tocont_genus <- bind_rows(tocont_genus)
+# tocont_genusF <- tocont_genus %>% filter(abs(log2FoldChange) > .5)
 
 tocont <- bind_rows(tocont)
-
 tocontf <- tocont[abs(tocont$log2FoldChange) > .5,]
 
-tocontf %>% ggplot(aes(x=Family, y=log2FoldChange, fill=Treatment)) + 
+tocontf %>% 
+ ggplot(aes(x=Family, y=log2FoldChange, fill=Treatment)) + 
  geom_point(shape=21) + coord_flip() 
+
+meanOTUbmeans <- 
+  tocontf %>% group_by(OTU) %>% 
+  summarise(minbmean=min(baseMean), 
+            maxbmean=max(baseMean), 
+            meanbmean=mean(baseMean)) %>% 
+  mutate(meanpropsummeans=(meanbmean/sum(meanbmean))) %>% 
+  select(OTU, meanpropsummeans)
+
+
+# meanOTUbmeans$meanbmean/sum(meanOTUbmeans$meanbmean)*100
+
+tocontf %>% left_join(meanOTUbmeans) %>% 
+  mutate(abund_scaled_l2fc=log2FoldChange*meanpropsummeans) %>% 
+  ggplot(aes(x=Family, y=abund_scaled_l2fc, fill=Treatment)) + 
+  geom_point(shape=21) + coord_flip() 
 
 ### WRITE OUT TOCONTF ###
 tocontf %>% write_tsv('./output/Control_vs_All_DESeq.tsv')
 
 tocontf <- read_tsv('./output/Control_vs_All_DESeq.tsv') %>% 
   mutate(day=factor(day, levels = c('D0', 'D2', 'D7', 'D14', 'D21')))
+
+
 #tocontf %>% write_tsv('./figdat/diffabund_OTUS.tsv')
 
 #### ON TO SOMETHIGN HERE ####
@@ -859,24 +903,24 @@ FIG3C <-
   xlab('')
 
 ### TEST ####
-
-tocontf %>% 
-  filter(log2FoldChange > 0) %>%
-  mutate(Order=fct_infreq(Order),
-         Order=fct_lump_n(Order, 8)) %>% 
-  mutate(comp = factor(comp, levels = c('RPS_vs_Control', 'Acid_vs_Control', 'RCS_vs_Control'))) %>% 
-  ggplot(aes(x=comp, y=log(baseMean), fill=Order)) +
-  geom_col(color=alpha('black', alpha = .2)) +
-  scale_fill_brewer(palette = 'Dark2') +
-  # ggtitle('Number of OTUs enriched in each treatment relative to the control across all tissues and timepoints') + 
-  theme_cowplot() +
-  theme(legend.text = element_text(size=11),
-        axis.text.x = element_text(size=11),
-        # legend.background = element_rect(colour="grey", fill="grey", size=3),
-        legend.position=c(.39,.75)
-  )+
-  ylab('Number of significantly enriched OTUs vs Control') + 
-  xlab('')
+# 
+# tocontf %>% 
+#   filter(log2FoldChange > 0) %>%
+#   mutate(Order=fct_infreq(Order),
+#          Order=fct_lump_n(Order, 8)) %>% 
+#   mutate(comp = factor(comp, levels = c('RPS_vs_Control', 'Acid_vs_Control', 'RCS_vs_Control'))) %>% 
+#   ggplot(aes(x=comp, y=log(baseMean), fill=Order)) +
+#   geom_col(color=alpha('black', alpha = .2)) +
+#   scale_fill_brewer(palette = 'Dark2') +
+#   # ggtitle('Number of OTUs enriched in each treatment relative to the control across all tissues and timepoints') + 
+#   theme_cowplot() +
+#   theme(legend.text = element_text(size=11),
+#         axis.text.x = element_text(size=11),
+#         # legend.background = element_rect(colour="grey", fill="grey", size=3),
+#         legend.position=c(.39,.75)
+#   )+
+#   ylab('Number of significantly enriched OTUs vs Control') + 
+#   xlab('')
 
 
 tocontf %>% 
@@ -952,15 +996,17 @@ ggsave(fig_3,
 
 
 tocontf$Treatment <- sub('down_','',tocontf$Treatment)
+# tocont_genusF$Treatment <- sub('down_','',tocont_genusF$Treatment)
 
 # I want to display some kind of phylogenetic info about genera.
 # maybe order? phylogenetic tree in margin?
 
 ## Not a bad figure...
 
-tocontf %>%
+FIG4A <- 
+  tocontf %>%
   filter(Treatment == 'RPS') %>% 
-  filter(tissue == 'F') %>% 
+  filter(tissue == 'F' & day != 'D21') %>% 
   ggplot(aes(x=log2FoldChange, y=Genus, fill=day)) + 
   geom_point(size=3, shape=21) + 
   geom_vline(xintercept = 0, color='black') + 
@@ -973,10 +1019,13 @@ tocontf %>%
   theme(panel.grid.major.y =element_line(size=1, color='grey'), 
         axis.text.y = element_text(size=11)) 
   
+FIG4A
 
-tocontf %>%
+
+FIG4B <- 
+  tocontf %>%
   filter(Treatment == 'RPS') %>% 
-  filter(day == 'D21' & tissue != 'F') %>% 
+  filter(day == 'D21') %>% 
   ggplot(aes(x=log2FoldChange, y=Genus, fill=tissue)) + 
   geom_point(size=3 ,shape=21) + 
   geom_vline(xintercept = 0, color='black') + 
@@ -986,25 +1035,49 @@ tocontf %>%
   theme_cowplot() + 
   theme(panel.grid.major.y =element_line(size=1, color='grey'), 
         axis.text.y = element_text(size=11)) 
+FIG4B
+
+RPS_sigOTUs <- 
+  tocontf %>%
+  filter(Treatment == 'RPS' & log2FoldChange > 0) %>% 
+  select(OTU) %>% unique()
+# maybe supplement with staked bar showing how these OTUs make up the overall
+# community (on average) in the RPS group vs the Control Group
 
 
-
-tocontf %>%
-  filter(Treatment == 'RPS') %>% 
-  filter(tissue == 'F') %>% 
-  ggplot(aes(x=log2FoldChange, y=Genus, fill=day)) + 
-  geom_point(size=3 ,shape=21) + 
-  geom_vline(xintercept = 0, color='black') + 
-  xlim(-8.5,15) +
-  # ylim()
-  scale_fill_brewer(palette = 'Set1') + 
-  theme_cowplot() + 
-  theme(panel.grid.major.y =element_line(size=1, color='grey'), 
-        axis.text.y = element_text(size=11)) 
+# For each Day
 
 
+# 
+# tocont_genusF %>%
+#   filter(Treatment == 'RPS') %>% 
+#   filter(tissue == 'F') %>% 
+#   ggplot(aes(x=log2FoldChange, y=Genus, fill=day)) + 
+#   geom_point(size=3 ,shape=21) + 
+#   geom_vline(xintercept = 0, color='black') + 
+#   xlim(-8.5,15) +
+#   # ylim()
+#   scale_fill_brewer(palette = 'Set1') + 
+#   theme_cowplot() + 
+#   theme(panel.grid.major.y =element_line(size=1, color='grey'), 
+#         axis.text.y = element_text(size=11)) 
+# 
 
-
+# 
+# 
+# tocont_genusF %>%
+#   filter(Treatment == 'RPS') %>% 
+#   filter(day == 'D21' & tissue != 'F') %>% 
+#   ggplot(aes(x=log2FoldChange, y=Genus, fill=tissue)) + 
+#   geom_point(size=3 ,shape=21) + 
+#   geom_vline(xintercept = 0, color='black') + 
+#   xlim(-8.5,15) +
+#   # ylim()
+#   scale_fill_brewer(palette = 'Set1') + 
+#   theme_cowplot() + 
+#   theme(panel.grid.major.y =element_line(size=1, color='grey'), 
+#         axis.text.y = element_text(size=11)) 
+# 
 
 
 ###
@@ -1172,44 +1245,60 @@ HIGH_LOW_NMDS <- NMDS_ellipse(OTU_table=HIGH_LOW_OTU, metadata = HIGH_LOW_META, 
 
 HIGH_LOW_NMDS[[1]]$shed <- factor(HIGH_LOW_NMDS[[1]]$shed, levels = c('high', 'low', 'Control'))
 
-HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='0') %>%
-  ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + geom_point(size=3)+
+HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='D0') %>%
+  ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + 
+  # geom_point(size=3)+
+  geom_text(aes(label=pignum))+
   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + scale_color_brewer(palette = 'Set1') + 
   ggtitle('Feces Day 0, RPS high/low & control')
 
 
-HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='2') %>%
-  ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + geom_point(size=3)+
+HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='D2') %>%
+  ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + 
+  # geom_point(size=3)+
+  geom_text(aes(label=pignum))+
   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + scale_color_brewer(palette = 'Set1') + 
   ggtitle('Feces Day 2, RPS high/low & control')
 
-HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='7') %>%
-  ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + geom_point(size=3)+
+HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='D7') %>%
+  ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + 
+  # geom_point(size=3)+
+  geom_text(aes(label=pignum))+
   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
   ggtitle('Feces Day 7, RPS high/low & control')
 
-HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='14') %>%
-  ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + geom_point(size=3)+
+HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='D14') %>%
+  ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) +
+  # geom_point(size=3)+
+  geom_text(aes(label=pignum))+
   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
   ggtitle('Feces Day 14, RPS high/low & control')
 
-HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='21') %>%
-  ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + geom_point(size=3)+
+HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='D21') %>%
+  ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) +
+  # geom_point(size=3)+
+  geom_text(aes(label=pignum))+
   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
   ggtitle('Feces Day 21, RPS high/low & control')
 
-HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'X' & day =='21') %>%
-  ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + geom_point(size=3)+
+HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'X' & day =='D21') %>%
+  ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + 
+  # geom_point(size=3)+
+  geom_text(aes(label=pignum))+
   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
   ggtitle('Feces Day 21, RPS high/low & control, Cecal mucosa')
 
-HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'C' & day =='21') %>%
-  ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + geom_point(size=3)+
+HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'C' & day =='D21') %>%
+  ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) +
+  # geom_point(size=3)+
+  geom_text(aes(label=pignum))+
   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
   ggtitle('Feces Day 21, RPS high/low & control, Cecal contents')
 
-HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'I' & day =='21') %>%
-  ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + geom_point(size=3)+
+HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'I' & day =='D21') %>%
+  ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + 
+  # geom_point(size=3)+
+  geom_text(aes(label=pignum))+
   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
   ggtitle('Feces Day 21, RPS high/low & control, Ileal mucosa')
 
@@ -1278,7 +1367,7 @@ ihwRes <- IHW::ihw(pvalue ~ baseMean,  data = RPS_split_master, alpha = 0.05)
 
 RPS_split_master$IHW_pval <- IHW::adj_pvalues(ihwRes)
 
-RPS_split_master <- RPS_split_master %>% filter(IHW_pval < 0.1 & abs(log2FoldChange) > 0.25)
+RPS_split_master <- RPS_split_master %>% filter(IHW_pval < 0.1 & abs(log2FoldChange) > 0.5)
 
 #  NEED TO DO WORK HERE #
 
@@ -1300,6 +1389,16 @@ RPS_split_master %>% #filter(set %in% c('D0_feces' ,'D7_feces', 'D14_feces', 'D2
   geom_text_sciname(aes(x=OTU, y=0, sci = Genus, nonsci=newp2, important=imp), size=3) + coord_flip() +
   facet_wrap(~set, ncol = 1, scales = 'free_y') + scale_fill_brewer(palette = 'Set1')
 
+#### THIS ONE ###
+RPS_split_master %>% #filter(set %in% c('D0_feces' ,'D7_feces', 'D14_feces', 'D21_feces')) %>%
+  ggplot(aes(x=Genus, y=log2FoldChange, fill=day, shape=tissue)) +
+  geom_point(size=3) +
+  scale_shape_manual(values=c(21:27))+
+  # geom_text_sciname(aes(x=Genus, y=0, sci = Genus, nonsci=newp2, important=imp), size=3) +
+  coord_flip() +
+  scale_fill_brewer(palette = 'Set1')
+
+
 # RPS_split_master %>% filter(set %in% c('D21_feces', 'D21_cecal_content', 'D21_cecal_mucosa')) %>%
 #   ggplot(aes(x=reorder(OTU, log2FoldChange), y=log2FoldChange, fill=Treatment)) +
 #   geom_bar(stat='identity') + 
@@ -1315,7 +1414,6 @@ RPS_split_master %>% #filter(set %in% c('D0_feces' ,'D7_feces', 'D14_feces', 'D2
 
 
 
-library(cowplot)
 
 # p <- RPS_split_master %>%
 #   group_by(OTU, Treatment) %>%
@@ -1513,23 +1611,133 @@ blarg_notreat <- function(phyloseq_obj, day, tissue, covariate, shrink_type='ape
 }
 
 
-
+# VFA associations with OTUs all treatments correcting for treatmetn
 VFA_blarg <- 
   list(
-    blarg(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'lactate', cookscut = FALSE)[[2]],
-    blarg(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'butyrate', cookscut = FALSE)[[2]],
-    blarg(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'caproate', cookscut = FALSE)[[2]],
-    blarg(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'valerate', cookscut = FALSE)[[2]],
-    blarg(phyloseq_obj = FS12b, day = 'D21', tissue = 'X', covariate = 'lactate', cookscut = FALSE)[[2]],
-    blarg(phyloseq_obj = FS12b, day = 'D21', tissue = 'X', covariate = 'butyrate', cookscut = FALSE)[[2]],
-    blarg(phyloseq_obj = FS12b, day = 'D21', tissue = 'X', covariate = 'caproate', cookscut = FALSE)[[2]],
-    blarg(phyloseq_obj = FS12b, day = 'D21', tissue = 'X', covariate = 'valerate', cookscut = FALSE)[[2]]
+    blarg_treat(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'lactate')[[2]],
+    blarg_treat(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'butyrate')[[2]],
+    blarg_treat(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'caproate')[[2]],
+    blarg_treat(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'valerate')[[2]],
+    blarg_treat(phyloseq_obj = FS12b, day = 'D21', tissue = 'X', covariate = 'lactate')[[2]],
+    blarg_treat(phyloseq_obj = FS12b, day = 'D21', tissue = 'X', covariate = 'butyrate')[[2]],
+    blarg_treat(phyloseq_obj = FS12b, day = 'D21', tissue = 'X', covariate = 'caproate')[[2]],
+    blarg_treat(phyloseq_obj = FS12b, day = 'D21', tissue = 'X', covariate = 'valerate')[[2]]
   )
 
+###
+# VFA associations with OTUs only RPS group #
+VFA_OTU_assoc_RPS <- 
+  list(
+    blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'butyrate')[[2]],
+    blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'caproate')[[2]],
+    blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'valerate')[[2]],
+    blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'succinate')[[2]],
+    blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'X', covariate = 'butyrate')[[2]],
+    blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'X', covariate = 'caproate')[[2]],
+    blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'X', covariate = 'valerate')[[2]], 
+    blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'X', covariate = 'succinate')[[2]]
+  ) %>% 
+  bind_rows() %>%
+  filter(padj < 0.05 & log2FoldChange >.5)
+
+# VFA_OTU_assoc_RPS <- 
+#   list(
+#     blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'butyrate')[[2]],
+#     blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'caproate')[[2]],
+#     blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'valerate')[[2]],
+#     blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'X', covariate = 'butyrate')[[2]],
+#     blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'X', covariate = 'caproate')[[2]],
+#     blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'X', covariate = 'valerate')[[2]]
+#   ) %>% 
+#   bind_rows() %>%
+#   filter(padj < 0.05 & log2FoldChange >.5)
 
 
-VFA_blarg <- bind_rows(VFA_blarg) %>%  arrange(OTU)
 
+
+
+###
+VFA_OTU_assoc_RPS %>% group_by(OTU) %>% tally()
+  
+VFA_OTU_assoc_RPS <-   VFA_OTU_assoc_RPS %>% filter(tissue == 'C') 
+
+hist(VFA_OTU_assoc_RPS$log2FoldChange, breaks = 50)
+
+
+
+
+VFA_OTU_edges <- 
+  VFA_OTU_assoc_RPS %>% 
+  filter(tissue == 'C') %>% 
+  transmute(from=as.character(OTU),
+            to=covariate, 
+            type='OTU_VFA', 
+            weight=log2FoldChange)
+
+OTU_NODES <- 
+  tibble(V_ID=unique(VFA_OTU_edges$from), 
+         type='OTU')
+
+### VFA VFA correlation calculation
+meta <- as(sample_data(FS12_RPS), 'data.frame') %>% 
+  filter(tissue == 'C')
+
+vfa_mat <- select(meta, butyrate, valerate, caproate, succinate) %>% as('matrix')
+
+VFA_SIG_CORS <-
+  Hmisc::rcorr(vfa_mat) %>% 
+  broom::tidy() %>%
+  filter(p.value < 0.05 & estimate > 0) 
+  
+VFA_VFA_EDGES <- 
+  VFA_SIG_CORS %>% 
+  transmute(from=column1, 
+            to=column2, 
+            type='VFA_VFA', 
+            weight=estimate)
+
+VFA_NODES <- 
+  tibble(V_ID=unique(c(VFA_SIG_CORS$column1, VFA_SIG_CORS$column2)), 
+         type='VFA')
+
+
+NODES <- bind_rows(VFA_NODES, OTU_NODES)
+
+
+# library(Hmisc)
+
+### geomnet
+
+
+gg <- ggplot(data = VFA_OTU_NET, aes(from_id = from, to_id = to, linewidth = weight)) +
+  geom_net(colour = "darkred", labelon=TRUE, size = 10,
+           directed = FALSE, vjust = 0.5, labelcolour = "black",
+           ecolour = "grey40") +
+  theme_net()
+gg
+
+
+library(geomnet)
+fortify(as.edgedf())
+ 
+
+##
+
+
+
+
+cor(meta$butyrate, meta$caproate)
+cor(meta$valerate, meta$caproate)
+cor(meta$butyrate, meta$valerate)
+# 
+# VFA_blarg <-
+#   bind_rows(VFA_blarg) %>%
+#   arrange(OTU) %>%
+#   filter(padj < 0.05 & log2FoldChange > 0.5)
+# 
+# VFA_blarg %>% select(OTU) %>% unique()
+# 
+# hist(VFA_blarg$log2FoldChange, breaks=100)
 
 # nodes will be:
 # 1) VFAs
@@ -1553,9 +1761,18 @@ VFA_blarg %>% ggplot(aes(x=log2FoldChange, y=padj)) + geom_point()
 
 
 
-tst
-blarg(phyloseq_obj = FS12b, day = 'D2', tissue = 'F', covariate = 'log_sal')
-blarg(phyloseq_obj = FS12b, day = 'D7', tissue = 'F', covariate = 'log_sal')
+blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D2', tissue = 'F', covariate = 'log_sal')
+blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D7', tissue = 'F', covariate = 'log_sal')
+# blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D14', tissue = 'F', covariate = 'log_sal')
+# blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'F', covariate = 'log_sal')
+blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'X', covariate = 'log_sal')
+blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'log_sal')
+# blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'I', covariate = 'log_sal')
+
+
+
+blarg_treat(phyloseq_obj = FS12b, day = 'D2', tissue = 'F', covariate = 'log_sal')
+blarg_notreat(phyloseq_obj = FS12b, day = 'D7', tissue = 'F', covariate = 'log_sal')
 blarg(phyloseq_obj = FS12b, day = 'D14', tissue = 'F', covariate = 'log_sal')
 blarg(phyloseq_obj = FS12b, day = 'D21', tissue = 'F', covariate = 'log_sal')
 

@@ -18,8 +18,29 @@ vfas.gather$set <- paste(vfas.gather$hour, vfas.gather$treatment)
 # initial peek #
 # vfas %>% filter(pignum %in% c(458, 461, 469, 472))
 
+### VFA CECUM TESTS ###
+
+scfas <- vfas %>% filter(hour == 0)
+
+but_test <- aov(butyrate~treatment, data = scfas)
+cap_test <- aov(caproate~treatment, data = scfas)
+val_test <- aov(valerate~treatment, data = scfas)
+tot_test <- aov(total~treatment, data = scfas)
 
 
+
+summary(but_test)
+summary(val_test)
+summary(cap_test)
+summary(tot_test)
+
+scfa_tests <- 
+  bind_rows(list(
+  TukeyHSD(but_test) %>% tidy() %>% mutate(scfa='butryate'),
+TukeyHSD(val_test) %>% tidy()%>% mutate(scfa='valerate'),
+TukeyHSD(cap_test) %>% tidy()%>% mutate(scfa='caproate'),
+TukeyHSD(tot_test) %>% tidy()%>% mutate(scfa='total')
+))
 
 ### D21 CECUM ALL VFAS  ###
 
@@ -33,11 +54,11 @@ filter(vfas.gather, hour == 0 ) %>%
 
 unique(vfas.gather$VFA)
 
-filter(vfas.gather, hour == 0 & VFA %in% c('acetate', 'butyrate', 'propionate', 'valerate', 'caproate', 'total')) %>%
+filter(vfas.gather, hour == 0 & VFA %in% c('butyrate', 'valerate', 'caproate', 'total')) %>%
   ggplot(aes(x=treatment, y=mM, group=set, fill=treatment)) +
   geom_boxplot(outlier.alpha = 0) +geom_jitter(shape=21, size=1.5, stroke=1, alpha=.75, width = .25)+
   scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
-  facet_wrap(~VFA, scales = 'free') + ggtitle("Cecal SCFAs 21 days post challenge, no incubation")
+  facet_wrap(~VFA, scales = 'free', nrow = 1) + ggtitle("Cecal SCFAs 21 days post challenge, no incubation")
 
 #
 # filter(vfas.gather, hour == 0 &
