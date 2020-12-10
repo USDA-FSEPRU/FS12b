@@ -39,31 +39,31 @@ all_daily <- sal_data %>% filter(pignum != 101) %>% group_by(time_point, treatme
 
 
 ### Figure 1A
-F1A <- all_daily %>% 
-  mutate(TPP=case_when(
-    treatment == 'RPS'  ~    time_point, 
-    treatment == 'Acid' ~    time_point - .15, 
-    treatment == 'RCS'  ~    time_point + .15, 
-    treatment == 'control' ~ time_point, 
-    TRUE ~ 1000000000000000000)) %>% 
-  filter(!(treatment %in% c('Zn+Cu', 'Bglu'))) %>%
-  ggplot(aes(x=TPP, y=mean_sal, fill=treatment, group=treatment)) +
-  # geom_jitter(aes(x=time_point, y=log_sal, color=treatment), data=filter(sal_data, !(treatment %in% c('Zn+Cu', 'Bglu'))& pignum !=101), alpha=.5) + 
-  geom_line(aes(color=treatment), size=1.5)+
-  geom_errorbar(aes(ymin=mean_sal-se_sal,ymax=mean_sal+se_sal), width=.2) +
-  geom_point(shape=21, size=4) +
-  scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
-  scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) +
-  ylab('log CFU / g feces') +
-  xlab('Day post-challenge') +
-  theme(legend.position = 'none', 
-        axis.title = element_text(size = 11), 
-        panel.grid.major = element_line(color='grey'))
-  # ggtitle('Daily shedding, group summary statistics')
-
-
-F1A
-###
+# F1A <- all_daily %>% 
+#   mutate(TPP=case_when(
+#     treatment == 'RPS'  ~    time_point, 
+#     treatment == 'Acid' ~    time_point - .15, 
+#     treatment == 'RCS'  ~    time_point + .15, 
+#     treatment == 'control' ~ time_point, 
+#     TRUE ~ 1000000000000000000)) %>% 
+#   filter(!(treatment %in% c('Zn+Cu', 'Bglu'))) %>%
+#   ggplot(aes(x=TPP, y=mean_sal, fill=treatment, group=treatment)) +
+#   # geom_jitter(aes(x=time_point, y=log_sal, color=treatment), data=filter(sal_data, !(treatment %in% c('Zn+Cu', 'Bglu'))& pignum !=101), alpha=.5) + 
+#   geom_line(aes(color=treatment), size=1.5)+
+#   geom_errorbar(aes(ymin=mean_sal-se_sal,ymax=mean_sal+se_sal), width=.2) +
+#   geom_point(shape=21, size=4) +
+#   scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
+#   scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) +
+#   ylab('log CFU / g feces') +
+#   xlab('Day post-challenge') +
+#   theme(legend.position = 'none', 
+#         axis.title = element_text(size = 11), 
+#         panel.grid.major = element_line(color='grey'))
+#   # ggtitle('Daily shedding, group summary statistics')
+# 
+# 
+# F1A
+# ###
 
 
 #############
@@ -180,25 +180,39 @@ D0s <- tibble(treatment=c('control', 'RPS', 'Acid', 'RCS'),
 tes <- rbind(D0s, means.emm)
 
 
+
+F1A <- 
 rbind(D0s, means.emm) %>% 
-  ggplot(aes(x=as.numeric(as.character(day)), y=estimate, color=treatment, group=treatment)) + geom_point()+
-  geom_pointrange(aes(ymin=conf.low, ymax=conf.high)) + 
-  geom_line()
+  mutate(treatment=factor(treatment, levels = c('control', 'RPS', 'Acid', 'RCS')), 
+         daynum=as.numeric(as.character(day))) %>% 
+  ggplot(aes(x=daynum, y=estimate, color=treatment, group=treatment)) + geom_point()+
+  geom_line(size=1.75)+
+  geom_errorbar(aes(ymin=conf.low, ymax=conf.high), color='black', width=.2)+
+  geom_point(aes(fill=treatment),size=3, shape=21, color='black') +
+  scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple'))+
+  scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
+  ylab('log(CFU) Salmonella/g feces') + 
+  xlab('Days post infection') + 
+  theme(legend.position = 'top')
 
 F1A
 
 F1B <- 
   contrast.emm %>%
+  mutate(p.plot=ifelse(adj.p.value < 0.05, adj.p.value, NA), 
+         p.plot=round(p.plot, digits = 2)) %>% 
     filter(grepl('control', contrast)) %>% 
     ggplot(aes(x=contrast, y=estimate, color=contrast))+
     geom_point() +
     geom_hline(yintercept = 0)+
     geom_pointrange(aes(ymin=conf.low, ymax=conf.high)) +
+    geom_text(aes(label=p.plot), nudge_x = .2)+
     coord_flip()+ 
     facet_wrap(~day, nrow = 1)+
-    scale_color_manual(values=c('red','orange','#3399FF')) 
+    scale_color_manual(values=c('red','orange','#3399FF'))  + 
+    theme(legend.position = 'none')
 
-
+F1B
 
 #### TISSUES ###
 
@@ -222,10 +236,10 @@ sum_sal <- sum_sal[match(filter(sal_data, time_point==2)$pignum,sum_sal$pignum),
 sum_sal$treatment <- factor(sum_sal$treatment, levels = c('control', 'RPS', 'Acid', 'Zn+Cu', 'RCS', 'Bglu'))
 
 
-F2A <- filter(sum_sal, pignum !=101) %>% 
+F1C <- filter(sum_sal, pignum !=101) %>% 
   ggplot(aes(x=treatment, y=AULC, fill=treatment))+
   geom_boxplot(outlier.alpha = 0) + 
-  geom_text(aes(label=pignum))+
+  # geom_text(aes(label=pignum))+
   geom_jitter(aes(fill=treatment), shape=21, size=1.75, stroke=1, width = .13) +
   scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) +
   # ggtitle('Cumulative Salmonella shedding (AULC)', subtitle = 'ANOVA P = 0.0123') +
@@ -235,7 +249,7 @@ F2A <- filter(sum_sal, pignum !=101) %>%
         panel.grid.major = element_line(color='grey'))
 
 
-F2A
+F1C
 
 
 ### USE THIS FOR AULC STAT TEST ###
@@ -244,7 +258,7 @@ summary(aov_AULC)
 
 AULC_tuk <- TukeyHSD(aov_AULC) %>% tidy()
 
-F2B <- AULC_tuk %>% filter(grepl('control', contrast)) %>% 
+F1D <- AULC_tuk %>% filter(grepl('control', contrast)) %>% 
   mutate(contrast=factor(contrast, levels = c('RCS-control', 'Acid-control','RPS-control'))) %>%
   ggplot(aes(x=contrast, y=estimate, ymin=conf.low, ymax=conf.high,color=contrast)) +
   geom_hline(yintercept = 0, color='grey') +
@@ -262,7 +276,7 @@ F2B <- AULC_tuk %>% filter(grepl('control', contrast)) %>%
         panel.grid.major.x = element_line(color='grey', size=.2))+
   coord_flip() +
   scale_color_manual(values=c('red','orange','#3399FF')) 
-F2B
+F1D
 # 
 # sample(2:50, size = length(sal_no0$Salmonella[sal_no0$Salmonella == 50]), replace = TRUE)
 # 
@@ -321,6 +335,7 @@ contrast.emm <-
   emmeans(fit_interact, ~ treatment | tissue) %>%
   contrast(method='revpairwise') %>%
   tidy(conf.int=TRUE) %>% 
+  filter(grepl('control', contrast)) %>% 
   mutate(contrast=factor(contrast, levels = c('RCS - control', 'Acid - control','RPS - control' ))) 
 
 means.emm <-
@@ -347,55 +362,57 @@ tissum %>% filter(tissue=='cecal_cont')
 
 
 #
-
-tis_tests <- tis %>%  group_by(tissue) %>% nest() %>% 
-  mutate(AOV=map(.x = data, ~ aov(data=.x, log_sal ~ treatment)), 
-         tid_AOV=map(AOV, tidy), 
-         TUK=map(AOV, TukeyHSD), 
-         tid_TUK=map(TUK, tidy))
-
-
-tis_tests %>% select(tissue, tid_AOV) %>% unnest(cols = tid_AOV)
-
-tis_anno <- tibble(y=c(0,0,0,0,0), 
-                   tissue=factor(c('cecal_cont','Cecum','ICLN','IPP', 'Tonsil'), levels = c('cecal_cont','Cecum','ICLN','IPP', 'Tonsil')), 
-                   x=c(3.9,3.9,3.9,3.9,3.9), 
-                   labtext = c('ANOVA p=0.02', 
-                               'ANOVA p=0.05',
-                               'ANOVA p=0.13',
-                               'ANOVA p=0.54',
-                               'ANOVA p=0.01'))
-
-
-  
-tissue_tuks <- tis_tests %>%
-  select(tissue, tid_TUK) %>% unnest(cols = tid_TUK) %>%
-  filter(grepl('control', contrast)) %>% 
-  mutate(tuk_pval=adj.p.value, 
-         fdr_pval=p.adjust(adj.p.value, method = 'fdr')) %>% 
-  select(-adj.p.value)
-
-tissue_tuks
-  
-#
-
-all_tis <- tis %>% group_by(tissue, treatment) %>%
-  summarise(mean_sal=mean(log_sal),
-            sd_sal=sd(log_sal),
-            num=n(),
-            se_sal=sd_sal/sqrt(num))
-
-
-
-
-
+# 
+# tis_tests <- tis %>%  group_by(tissue) %>% nest() %>% 
+#   mutate(AOV=map(.x = data, ~ aov(data=.x, log_sal ~ treatment)), 
+#          tid_AOV=map(AOV, tidy), 
+#          TUK=map(AOV, TukeyHSD), 
+#          tid_TUK=map(TUK, tidy))
+# 
+# 
+# tis_tests %>% select(tissue, tid_AOV) %>% unnest(cols = tid_AOV)
+# 
+# tis_anno <- tibble(y=c(0,0,0,0,0), 
+#                    tissue=factor(c('cecal_cont','Cecum','ICLN','IPP', 'Tonsil'), levels = c('cecal_cont','Cecum','ICLN','IPP', 'Tonsil')), 
+#                    x=c(3.9,3.9,3.9,3.9,3.9), 
+#                    labtext = c('ANOVA p=0.02', 
+#                                'ANOVA p=0.05',
+#                                'ANOVA p=0.13',
+#                                'ANOVA p=0.54',
+#                                'ANOVA p=0.01'))
+# 
+# 
+#   
+# tissue_tuks <- tis_tests %>%
+#   select(tissue, tid_TUK) %>% unnest(cols = tid_TUK) %>%
+#   filter(grepl('control', contrast)) %>% 
+#   mutate(tuk_pval=adj.p.value, 
+#          fdr_pval=p.adjust(adj.p.value, method = 'fdr')) %>% 
+#   select(-adj.p.value)
+# 
+# tissue_tuks
+#   
+# #
+# 
+# all_tis <- tis %>% group_by(tissue, treatment) %>%
+#   summarise(mean_sal=mean(log_sal),
+#             sd_sal=sd(log_sal),
+#             num=n(),
+#             se_sal=sd_sal/sqrt(num))
+# 
+# 
+# 
+# 
+# 
 
 ### Figure 3A
-F3A <- all_tis %>%
-  ggplot(aes(x=treatment, y=mean_sal, fill=treatment, group=treatment)) +
+F2A <- means.emm %>%
+  mutate(treatment=factor(treatment, levels = c('control', 'RPS', 'Acid', 'RCS')), 
+         conf.low=ifelse(conf.low<0, 0, conf.low)) %>% 
+  ggplot(aes(x=treatment, y=estimate, fill=treatment, group=treatment)) +
   # geom_jitter(aes(x=time_point, y=log_sal, color=treatment), data=filter(sal_data, !(treatment %in% c('Zn+Cu', 'Bglu'))& pignum !=101), alpha=.5) + 
   geom_col(aes(fill=treatment), size=1.5)+
-  geom_errorbar(aes(ymin=mean_sal-se_sal,ymax=mean_sal+se_sal), width=.2) +
+  geom_errorbar(aes(ymin=conf.low,ymax=conf.high), width=.2) +
   scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
   scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) +
   ylab('log CFU / g tissue') +
@@ -409,30 +426,30 @@ F3A <- all_tis %>%
   facet_wrap(~tissue, ncol = 5)
 
 
-F3A
+F2A
 
 
 
 #
 # Figure 3B
 
-F3B <- tissue_tuks %>%
-  mutate(contrast = factor(contrast, levels=c('RCS-control', 'Acid-control','RPS-control'))) %>% 
+F2B <- contrast.emm %>%
+  mutate(p.plot =ifelse(adj.p.value < 0.05, adj.p.value, NA)) %>% 
   ggplot(aes(x=contrast, y=estimate, ymin=conf.low, ymax=conf.high, color=contrast)) +
   geom_hline(yintercept = 0, color='grey')+
   geom_pointrange(size=.5) + 
-  geom_label(data=tis_anno, aes(x=x,y=y,label=labtext), inherit.aes = FALSE, size=3)+
-  geom_text(aes(label=round(tuk_pval, digits = 2), y=2))+
-  coord_flip() + scale_x_discrete(expand = expand_scale(add = c(1,1.5)))+
+  geom_text(aes(label=round(p.plot, digits = 4)), nudge_x = .2)+
+  coord_flip() + 
   facet_wrap(.~tissue, ncol = 5) +
-  ylim(-3.5,3.5) + scale_color_manual(values=c('red','orange','#3399FF')) +
+  ylim(-3.5,3.5) + 
+  scale_color_manual(values=c('red','orange','#3399FF')) +
   theme(panel.border = element_rect(colour = "black", fill=NA, size=1), 
         axis.title.y=element_blank(), 
         legend.position = 'none', 
         panel.grid.major = element_line(color='grey', size=.25))
 
 
-F3B
+F2B
 
 ### COWPLOT ZONE ###
 
@@ -443,16 +460,18 @@ F3B
 
 
 fig_1 <- ggdraw()+
-  draw_plot(F1A, 0,.45,1,.55)+
-  draw_plot(F1B, 0,0,1,.45)+
-  draw_plot_label(x=c(0,0), y=c(1,.45), label = c('A', 'B'))
+  draw_plot(F1A, 0,.45,.6,.55)+
+  draw_plot(F1B, 0,0,.6,.45)+
+  draw_plot(F1C, .6,.5,.4,.5)+
+  draw_plot(F1D, .6,0,.4,.5)+
+  draw_plot_label(x=c(0,0,.6,.6), y=c(1,.45, 1,.5), label = c('A', 'B','C', 'D'))
 fig_1
 
 
 ggsave(fig_1,
        filename = './output/figure1.jpeg',
-       width = 180,
-       height = 150,
+       width = 250,
+       height = 190,
        device = 'jpeg',
        dpi = 300,
        units = 'mm')
@@ -462,40 +481,40 @@ ggsave(fig_1,
 
 # F2A
 # F2B
-
-
-fig_2 <- ggdraw()+
-  draw_plot(F2A, 0,0,.6,1)+
-  draw_plot(F2B, .6,0,.4,1)+
-  draw_plot_label(x=c(0,.6), y=c(1,1), label = c('A', 'B'))
-fig_2
-
-
-ggsave(fig_2,
-       filename = './output/figure2.jpeg',
-       width = 180,
-       height = 85,
-       device = 'jpeg',
-       dpi = 300,
-       units = 'mm')
-
-
-
-# Figure 3
+# 
+# 
+# fig_2 <- ggdraw()+
+#   draw_plot(F2A, 0,.5,1,.5)+
+#   draw_plot(F2B, 0,0,1,.5)+
+#   draw_plot_label(x=c(0,0), y=c(1,.5), label = c('C', 'D'))
+# fig_2
+# 
+# 
+# ggsave(fig_2,
+#        filename = './output/figure2.jpeg',
+#        width = 180,
+#        height = 85,
+#        device = 'jpeg',
+#        dpi = 300,
+#        units = 'mm')
+# 
+# 
+# 
+# # Figure 3
 
 # F3A
 # F3B
 
 
-fig_3 <- ggdraw()+
-  draw_plot(F3A, 0,.5,1,.5)+
-  draw_plot(F3B, 0,0,1,.5)+
+fig_2 <- ggdraw()+
+  draw_plot(F2A, 0,.5,1,.5)+
+  draw_plot(F2B, 0,0,1,.5)+
   draw_plot_label(x=c(0,0), y=c(1,.5), label = c('A', 'B'))
-fig_3
+fig_2
 
 
-ggsave(fig_3,
-       filename = './output/figure3.jpeg',
+ggsave(fig_2,
+       filename = './output/figure2.jpeg',
        width = 180,
        height = 150,
        device = 'jpeg',

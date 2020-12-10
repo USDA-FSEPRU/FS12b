@@ -79,6 +79,7 @@ FIG6B <-
   ggplot(aes(x=contrast, y=estimate, ymin=conf.low, ymax=conf.high)) +
   geom_hline(yintercept = 0)+
   geom_pointrange(aes(color=contrast)) + 
+  geom_text(aes(label=round(p.plot, 3), color=contrast), nudge_x = .2)+
   coord_flip()+
   facet_wrap(~scfa, scales = 'free_x', nrow = 1) +
   theme(legend.position = 'none', 

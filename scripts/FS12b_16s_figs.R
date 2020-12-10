@@ -965,7 +965,7 @@ fig_3
 
 
 ggsave(fig_3,
-       filename = './output/16S_overview.jpeg',
+       filename = './output/figure3.jpeg',
        width = 250,
        height = 140,
        device = 'jpeg',
@@ -1372,10 +1372,18 @@ SCFA_OTU_ASSOC_FIG <-
   VFA_OTU_assoc_RPS %>% 
   ggplot(aes(x=Genus, y=log2FoldChange, fill=covariate)) +
   geom_hline(yintercept = 0)+
-  geom_point(shape=21) + 
+  geom_point(shape=21, size=3) + 
   coord_flip()+
-  scale_shape_manual(values = 21:27)  
+  scale_shape_manual(values = 21:27)  +
+  scale_fill_brewer(palette = 'Set1')
 SCFA_OTU_ASSOC_FIG
+
+ggsave('./output/fig_S1.jpeg', 
+       plot=SCFA_OTU_ASSOC_FIG, 
+       device = 'jpeg', 
+       width=150, 
+       height = 150, 
+       units = 'mm', scale=1.2)
 
 #### OTU SAL associations ######
 
@@ -1399,15 +1407,22 @@ OTUS_RED_SAL_RPS <- OTUS_SAL_assoc_RPS %>% filter(padj< 0.05, log2FoldChange < -
 SAL_OTU_ASSOC_FIG <- 
   OTUS_SAL_assoc_RPS %>%
   filter(padj < 0.05, abs(log2FoldChange) > 0.25) %>% 
-  ggplot(aes(x=Genus, y=log2FoldChange, fill=tissue, shape=day)) +
+  ggplot(aes(x=Genus, y=log2FoldChange, shape=tissue, fill=day)) +
   geom_hline(yintercept = 0)+
-  geom_point() + 
+  geom_point(size=3) + 
   coord_flip()+
-  scale_shape_manual(values = 21:27)
+  scale_shape_manual(values = 21:22)+
+  guides(fill = guide_legend(override.aes = list(shape = 21)))
 
 SAL_OTU_ASSOC_FIG
 
 
+ggsave('./output/fig_S2.jpeg', 
+       plot=SAL_OTU_ASSOC_FIG, 
+       device = 'jpeg', 
+       width=150, 
+       height = 150, 
+       units = 'mm', scale=1.2)
 
 
 
@@ -1573,22 +1588,33 @@ ONODES <-
   filter(OTU %in%ONODES$OTU) %>% 
   select(OTU, perc_comm) %>% 
   right_join(ONODES) %>% 
-  mutate(Family=fct_reorder(Family, perc_comm, .fun = sum, .desc = TRUE))
+  mutate(Class=fct_reorder(Class, perc_comm, .fun = sum, .desc = TRUE))
 
 
 unique(ONODES$Family)
+
+library(ggrepel)
 
 FIG7 <- 
   ONODES %>%
   ggplot(aes(x=x, y=y)) + 
   geom_segment(data=GRAPH_EDGES, aes(x=x, y=y, xend=xend, yend=yend), color='grey') + 
-  geom_point(shape=21, aes(size=perc_comm, fill=Family)) + 
+  geom_point(shape=21, aes(size=perc_comm, fill=Class)) + 
   scale_fill_brewer(palette = 'Set1') + 
-  geom_text(aes(label=OTU), size=3, nudge_y = .02) + 
+  geom_text(aes(label=Genus), size=3, nudge_y = .02) + 
   geom_point(data = SCFA_NODES, aes(x=x, y=y), size=4, shape=22, fill='black') + 
   geom_label(data = SCFA_NODES, aes(x=x, y=y, label=from), size=4,color='white', fill='black')  + 
   theme_net() + 
+  # geom_text_repel(aes(label=Genus))+
   theme(legend.position = 'bottom')
+
+
+ggsave('./output/figure7.jpeg',
+       plot = FIG7,
+       device = 'jpeg',
+       width = 180,
+       height=180, units = 'mm')
+
 
 # All OTUs in this figure now have 
 # 1) a significant association with reduction in salmonella (FigS1A)
