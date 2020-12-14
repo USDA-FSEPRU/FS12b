@@ -258,7 +258,7 @@ CONTROL_VS_RPS_PICRUST %>% filter(tissue !='F') %>%
 
 
 
-
+library(cowplot)
 
 
 CONTROL_VS_RPS_PICRUST %>% filter(ptype =='other') %>% 
@@ -266,7 +266,8 @@ CONTROL_VS_RPS_PICRUST %>% filter(ptype =='other') %>%
   ggplot(aes(x=description, y=log2FoldChange)) +
   # geom_text(aes(label=description, y=0)) +
   geom_point(aes(color=day, shape=tissue), size=3) + coord_flip() + 
-  scale_color_brewer(palette = 'Set1') #+
+  scale_color_brewer(palette = 'Set1') +theme_cowplot() + 
+  geom_hline(yintercept = 0)
   # facet_wrap(~ptype, scales = 'free_y', ncol = 1)
 
 
@@ -275,15 +276,20 @@ CONTROL_VS_RPS_PICRUST %>% filter(ptype =='synthesis') %>%
   ggplot(aes(x=description, y=log2FoldChange)) +
   # geom_text(aes(label=description, y=0)) +
   geom_point(aes(color=day, shape=tissue)) + coord_flip() + 
-  scale_color_brewer(palette = 'Set1') #+
+  scale_color_brewer(palette = 'Set1') + theme_cowplot()+
+  theme_cowplot() + 
+  geom_hline(yintercept = 0)
 
 
 CONTROL_VS_RPS_PICRUST %>% filter(ptype =='degradation') %>% 
   arrange(desc(log2FoldChange)) %>% 
   ggplot(aes(x=description, y=log2FoldChange)) +
+  
   # geom_text(aes(label=description, y=0)) +
-  geom_point(aes(color=day, shape=tissue)) + coord_flip() + 
-  scale_color_brewer(palette = 'Set1') #+
+  geom_point(aes(color=day, shape=tissue), size=3) + coord_flip() + 
+  scale_color_brewer(palette = 'Set1') +theme_cowplot() + 
+  geom_hline(yintercept = 0)+theme_cowplot() + 
+  geom_hline(yintercept = 0)
 
 
 
@@ -499,10 +505,10 @@ res %>% ggplot(aes(x=log2FoldChange, y=pathway)) + geom_col() +
 
 HL_phylo <- 
   FS12b_HL %>%
-  prune_samples(samples = FS12b_HL@sam_data$tissue =='X' &
-                  FS12b_HL@sam_data$day =='D21') %>% 
+  prune_samples(samples = FS12b_HL@sam_data$tissue =='F' &
+                  FS12b_HL@sam_data$day =='D7') %>% 
   prune_taxa(taxa = taxa_sums(FS12b_HL) > 5) %>% 
-  phyloseq_to_deseq2(design = ~ log_sal)
+  phyloseq_to_deseq2(design = ~ scale(AULC))
 
 
 
@@ -519,7 +525,7 @@ res <-
   lfcShrink(dds = deseq_obj, coef = 2) %>%
   as.data.frame() %>% 
   filter(padj < 0.05) %>% 
-  filter(log2FoldChange > 0.1) %>% 
+  # filter(log2FoldChange > 0.1) %>% 
   rownames_to_column(var = 'pathway') %>% 
   left_join(descripts) %>% 
   mutate(pathway=fct_reorder(pathway, log2FoldChange))

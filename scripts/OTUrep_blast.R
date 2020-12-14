@@ -27,7 +27,9 @@ otu_blast %>% filter(qseqid == 'Otu00345')
 
 
 
+LOOK <- read_tsv('./output/Allstar_OTUs.tsv') %>% left_join(otu_blast_class)
 
+LOOK %>% select(OTU, perc_comm, Phylum:Genus, title, pident) %>% write_tsv('./output/Allstar_OTUs2.tsv')
 
 
 otu16 <- 

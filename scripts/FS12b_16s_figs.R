@@ -1221,6 +1221,12 @@ ggsave(filename = './output/figure4.jpeg', plot = FIG4, device = 'jpeg',
 # 
 # 
 # 
+
+tocontf %>%
+  filter(Genus == 'Bacteria_unclassified') %>%
+  filter(grepl('RPS', comp)) %>% pull(OTU)
+
+
 tocontf %>% filter(Genus == 'Escherichia-Shigella') %>% .$OTU
 tocontf %>% filter(Genus == 'Clostridium_sensu_stricto_1') %>% .$OTU %>% unique()
 
@@ -1614,6 +1620,14 @@ ggsave('./output/figure7.jpeg',
        device = 'jpeg',
        width = 180,
        height=180, units = 'mm')
+
+
+
+ALLSTAR_TAB <- 
+  ONODES %>% 
+  select(OTU, perc_comm, Domain:Genus) %>% 
+  write_tsv('./output/Allstar_OTUs.tsv')
+
 
 
 # All OTUs in this figure now have 

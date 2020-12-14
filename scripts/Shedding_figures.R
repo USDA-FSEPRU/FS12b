@@ -525,87 +525,83 @@ ggsave(fig_2,
 
 ########### FOR A HIGH VS LOW SHEDDER SHED FIGURE ##########
 
-tis_RPS <- tis %>% filter(treatment %in% c('control', 'RPS'))
-sum_sal_RPS <- sum_sal %>% filter(treatment %in% c('control', 'RPS'))
-
-controls <- sum_sal$pignum[sum_sal_RPS$treatment == 'control']
-
-
-tis_RPS$shed <- ifelse(tis_RPS$pignum %in% c(373,321,181,392,97), 'RPS_low',
-                       ifelse(tis_RPS$pignum %in% controls,'control', 'RPS_high'))
-                       
-                       
-sum_sal_RPS$shed <- ifelse(sum_sal_RPS$pignum %in% c(373,321,181,392,97), 'RPS_low',
-                           ifelse(sum_sal_RPS$pignum %in% controls,'control', 'RPS_high'))
-
-tis_RPS %>% ggplot(aes(x=shed, y=log_sal, group=shed, fill=shed)) +
-  geom_boxplot(outlier.alpha = 0) +
-  geom_jitter(shape=21,width = .1, size=2.25) +
-  facet_wrap(~tissue) +
-  scale_fill_manual(values=c('#33CC33', '#246DB6', '#47D6FF', 'orange', 'red', 'grey', 'purple')) +
-  ggtitle('Cecal Contents')
-
-sum_sal_RPS %>% ggplot(aes(x=treatment, y=AULC, group=shed, fill=shed)) +
-  geom_boxplot(outlier.alpha = 0) +
-  geom_jitter(shape=21,width = .1, size=2.25) +
-  #facet_wrap(~tissue) +
-  scale_fill_manual(values=c('#33CC33', '#246DB6', '#47D6FF', 'orange', 'red', 'grey', 'purple')) +
-  ggtitle('AULC')
-
-
-#C8C226
-#985CF9
-
-# CONTROL COLOR    '#33CC33'
-# RPS COLOR        '#3399FF'
-# HIGH SHED COLOR: '#246DB6'
-# LOW SHED COLOR:  '#47D6FF'
-
-darken('#3399FF')
-lighten('#3399FF')
-
-
-
-sum_sal %>% ggplot(aes(x=0, y=AULC,fill=treatment)) +
-  # geom_boxplot(outlier.alpha = 0) +
-  geom_jitter(shape=21,width = .01, size=2.25)+ geom_violin()
-
-
-
-sum_sal %>% 
-  ggplot(aes(x=AULC, fill=treatment)) +
-  geom_histogram(fill='grey', color='grey') +
-  geom_histogram(color=alpha('black', alpha = .5)) +
-  # geom_vline(xintercept = c(30.75, 44.5), color='purple') +
-  scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple'))
-
-
-
-
-# high-low shedding curves
-
-sal_data <- sal_data %>%
-  mutate(treatment2=
-           case_when(
-            treatment == 'control'       ~ 'control', 
-            pignum %in% c(373,321,181,392,97) ~ 'RPS_low',
-            treatment == 'RPS' & !(pignum %in% c(373,321,181,392,97)) ~ 'RPS_high'
-  
-))
-
-sal_data %>%
-  ggplot(aes(x=time_point, y=log_sal)) +
-  geom_point(color='grey') + 
-  geom_line(data=sal_data %>% filter(treatment %in% c('control', 'RPS')), aes(group=pignum, color=treatment2))
-
-
-sal_data %>%
-  filter(treatment %in% c('control', 'RPS')) %>% 
-  ggplot(aes(x=treatment2, y=log_sal, fill=treatment2)) + 
-  geom_boxplot() + geom_jitter(width = .2) + 
-  facet_wrap(~time_point_fact, nrow = 1) + 
-  geom_text_repel(aes(label=pignum))
-
+# tis_RPS <- tis %>% filter(treatment %in% c('control', 'RPS'))
+# sum_sal_RPS <- sum_sal %>% filter(treatment %in% c('control', 'RPS'))
+# 
+# controls <- sum_sal$pignum[sum_sal_RPS$treatment == 'control']
+# 
+# 
+# tis_RPS$shed <- ifelse(tis_RPS$pignum %in% c(373,321,181,392,97), 'RPS_low',
+#                        ifelse(tis_RPS$pignum %in% controls,'control', 'RPS_high'))
+#                        
+#                        
+# sum_sal_RPS$shed <- ifelse(sum_sal_RPS$pignum %in% c(373,321,181,392,97), 'RPS_low',
+#                            ifelse(sum_sal_RPS$pignum %in% controls,'control', 'RPS_high'))
+# 
+# tis_RPS %>% ggplot(aes(x=shed, y=log_sal, group=shed, fill=shed)) +
+#   geom_boxplot(outlier.alpha = 0) +
+#   geom_jitter(shape=21,width = .1, size=2.25) +
+#   facet_wrap(~tissue) +
+#   scale_fill_manual(values=c('#33CC33', '#246DB6', '#47D6FF', 'orange', 'red', 'grey', 'purple')) +
+#   ggtitle('Cecal Contents')
+# 
+# sum_sal_RPS %>% ggplot(aes(x=treatment, y=AULC, group=shed, fill=shed)) +
+#   geom_boxplot(outlier.alpha = 0) +
+#   geom_jitter(shape=21,width = .1, size=2.25) +
+#   #facet_wrap(~tissue) +
+#   scale_fill_manual(values=c('#33CC33', '#246DB6', '#47D6FF', 'orange', 'red', 'grey', 'purple')) +
+#   ggtitle('AULC')
+# 
+# 
+# #C8C226
+# #985CF9
+# 
+# # CONTROL COLOR    '#33CC33'
+# # RPS COLOR        '#3399FF'
+# # HIGH SHED COLOR: '#246DB6'
+# # LOW SHED COLOR:  '#47D6FF'
+# 
+# # 
+# # sum_sal %>% ggplot(aes(x=0, y=AULC,fill=treatment)) +
+# #   # geom_boxplot(outlier.alpha = 0) +
+# #   geom_jitter(shape=21,width = .01, size=2.25)+ geom_violin()
+# # 
+# 
+# 
+# sum_sal %>% 
+#   ggplot(aes(x=AULC, fill=treatment)) +
+#   geom_histogram(fill='grey', color='grey') +
+#   geom_histogram(color=alpha('black', alpha = .5)) +
+#   # geom_vline(xintercept = c(30.75, 44.5), color='purple') +
+#   scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple'))
+# 
+# 
+# 
+# 
+# # high-low shedding curves
+# 
+# sal_data <- sal_data %>%
+#   mutate(treatment2=
+#            case_when(
+#             treatment == 'control'       ~ 'control', 
+#             pignum %in% c(373,321,181,392,97) ~ 'RPS_low',
+#             treatment == 'RPS' & !(pignum %in% c(373,321,181,392,97)) ~ 'RPS_high'
+#   
+# ))
+# 
+# sal_data %>%
+#   ggplot(aes(x=time_point, y=log_sal)) +
+#   geom_point(color='grey') + 
+#   geom_line(data=sal_data %>% filter(treatment %in% c('control', 'RPS')), aes(group=pignum, color=treatment2))
+# 
+# 
+# sal_data %>%
+#   filter(treatment %in% c('control', 'RPS')) %>% 
+#   ggplot(aes(x=treatment2, y=log_sal, fill=treatment2)) + 
+#   geom_boxplot() + geom_jitter(width = .2) + 
+#   facet_wrap(~time_point_fact, nrow = 1) + 
+#   geom_text_repel(aes(label=pignum))
+# 
 
 
 # 
