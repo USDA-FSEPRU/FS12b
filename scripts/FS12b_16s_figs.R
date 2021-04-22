@@ -831,22 +831,31 @@ tocontf %>%
  ggplot(aes(x=Family, y=log2FoldChange, fill=Treatment)) + 
  geom_point(shape=21) + coord_flip() 
 
-meanOTUbmeans <- 
-  tocontf %>% group_by(OTU) %>% 
-  summarise(minbmean=min(baseMean), 
-            maxbmean=max(baseMean), 
-            meanbmean=mean(baseMean)) %>% 
-  mutate(meanpropsummeans=(meanbmean/sum(meanbmean))) %>% 
-  select(OTU, meanpropsummeans)
+
+tocontf %>% filter(Treatment !='RPS') %>% 
+  ggplot(aes(x=Genus, y=log2FoldChange, fill=Treatment)) + 
+  geom_point(shape=21) + coord_flip()
 
 
+ALSO_ENRICHED_IN_OTHERS <- tocontf %>% filter(Treatment !='RPS') %>% pull(OTU) %>% unique()
+
+
+# meanOTUbmeans <- 
+#   tocontf %>% group_by(OTU) %>% 
+#   summarise(minbmean=min(baseMean), 
+#             maxbmean=max(baseMean), 
+#             meanbmean=mean(baseMean)) %>% 
+#   mutate(meanpropsummeans=(meanbmean/sum(meanbmean))) %>% 
+#   select(OTU, meanpropsummeans)
+# 
+# 
 # meanOTUbmeans$meanbmean/sum(meanOTUbmeans$meanbmean)*100
-
-tocontf %>% left_join(meanOTUbmeans) %>% 
-  mutate(abund_scaled_l2fc=log2FoldChange*meanpropsummeans) %>% 
-  ggplot(aes(x=Family, y=abund_scaled_l2fc, fill=Treatment)) + 
-  geom_point(shape=21) + coord_flip() 
-
+# 
+# tocontf %>% left_join(meanOTUbmeans) %>% 
+#   mutate(abund_scaled_l2fc=log2FoldChange*meanpropsummeans) %>% 
+#   ggplot(aes(x=Family, y=abund_scaled_l2fc, fill=Treatment)) + 
+#   geom_point(shape=21) + coord_flip() 
+# 
 ### WRITE OUT TOCONTF ###
 tocontf %>% write_tsv('./output/Control_vs_All_DESeq.tsv')
 
@@ -1017,6 +1026,7 @@ FIG4A <-
   tocontf %>%
   filter(Treatment == 'RPS') %>% 
   filter(tissue == 'F' & day != 'D21') %>% 
+  # filter(!(OTU %in% ALSO_ENRICHED_IN_OTHERS)) %>% 
   mutate(genus=fct_reorder(Genus, baseMean, .fun = sum)) %>% 
   ggplot(aes(x=log2FoldChange, y=genus, fill=day)) + 
   geom_point(size=3, shape=21) + 
@@ -1037,6 +1047,7 @@ FIG4B <-
   tocontf %>%
   filter(Treatment == 'RPS') %>% 
   filter(day == 'D21') %>% 
+  # filter(!(OTU %in% ALSO_ENRICHED_IN_OTHERS)) %>% 
   mutate(genus=fct_reorder(Genus, baseMean, .fun = sum)) %>% 
   ggplot(aes(x=log2FoldChange, y=genus, fill=tissue)) + 
   geom_point(size=3 ,shape=21) + 
@@ -1129,7 +1140,7 @@ FIG4 <-
   draw_plot(FIG4B, x=0, y=.0, width = .6, height = .45) + 
   draw_plot(FIG4C, x=.6, y=0, width = .4, height = 1)
 
-
+FIG4
 ggsave(filename = './output/figure4.jpeg', plot = FIG4, device = 'jpeg', 
        width = 280, 
        height=180, units = 'mm', 
@@ -1236,18 +1247,49 @@ FS12_RPS <- subset_samples(FS12b, treatment == 'RPS')
 
 
 #### log_sal as continuous covariate #### 
-formula(paste('~', 'log_sal'))
+# formula(paste('~', 'log_sal'))
 # FS12b@sam_data$day %in% c(day) & FS12b@sam_data$tissue == 'F'
 ##### SHOULD REALLY LOOK INTO INTERACTION WITH TREATMENT HERE!!!!!!!! 
 ### OR SUBSET EACH TREATMENT
 
-blarg_treat <- function(phyloseq_obj, day, tissue, covariate, shrink_type='apeglm', cookscut=TRUE){
-  form <- formula(paste('~', covariate, '+ treatment'))
+DESeq_cov_asso <- 
+  function(phyloseq_obj,
+           day,
+           tissue,
+           covariate,
+           shrink_type='apeglm',
+           cookscut=TRUE, 
+           treatment=FALSE, 
+           scale_cov=TRUE, 
+           p.plot=0.05, 
+           plot_lab='Genus', 
+           l2fc_plot=0.25){
+    
+    num_treats <- length(unique(phyloseq_obj@sam_data[['treatment']]))
+  # include treatment in formula?
+  if (treatment & (num_treats > 1)){
+    
+    form <- formula(paste('~', covariate, '+ treatment'))
+    print(form)
+  } else {
+    form <- formula(paste('~', covariate))
+    print(form)
+  }
+  
+  
   # print(form)
   # browser()
   FS12b.glom <- phyloseq_obj %>%
     prune_samples(samples = phyloseq_obj@sam_data$day %in% c(day) & phyloseq_obj@sam_data$tissue == tissue & !is.na(phyloseq_obj@sam_data[[covariate]]))
-  FS12b.glom@sam_data[[covariate]] <- scale(FS12b.glom@sam_data[[covariate]])
+  
+  # scale covariate?
+  if (scale_cov){
+    print('scale_cov == TRUE, scaling covariate')
+    FS12b.glom@sam_data[[covariate]] <- scale(FS12b.glom@sam_data[[covariate]])
+    
+  }
+  
+  
   FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
   
   # FS12b.glom@sam_data$log_sal
@@ -1278,104 +1320,50 @@ blarg_treat <- function(phyloseq_obj, day, tissue, covariate, shrink_type='apegl
   sigtab$day <- day
   sigtab$tissue <- tissue
   sigtab[['covariate']] <- covariate
-  
+  plot_tab <- sigtab %>% filter(padj < p.plot & abs(log2FoldChange) > l2fc_plot)
   fig_tit <- paste(covariate, 'associations with OTUs')
-  
-  p <- sigtab %>% 
-    filter(padj < 0.05) %>% 
-    ggplot(aes_string(x='OTU', y='log2FoldChange', fill='direction')) +
-    geom_col(color='black') + coord_flip() + geom_text(aes(label=Genus, y=0)) + 
-    ggtitle(fig_tit)
+  if (nrow(plot_tab) > 0 ){
+      p <- plot_tab %>% 
+        ggplot(aes_string(x='OTU', y='log2FoldChange', fill='direction')) +
+        geom_col(color='black') +
+        coord_flip() +
+        geom_text(aes_string(label=plot_lab, y=0)) + 
+        ggtitle(fig_tit)
+    
+  } else {
+    print('nothing to plot')
+    p <- ggplot() + 
+      ggtitle('No sig associations')
+  }
   
   return(list(p, sigtab))
   
   
 }
-
-blarg_notreat <- function(phyloseq_obj, day, tissue, covariate, shrink_type='apeglm', cookscut=TRUE){
-  form <- formula(paste('~', covariate))
-  # print(form)
-  # browser()
-  FS12b.glom <- phyloseq_obj %>%
-    prune_samples(samples = phyloseq_obj@sam_data$day %in% c(day) & phyloseq_obj@sam_data$tissue == tissue & !is.na(phyloseq_obj@sam_data[[covariate]]))
-  FS12b.glom@sam_data[[covariate]] <- scale(FS12b.glom@sam_data[[covariate]])
-  FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
-  
-  # FS12b.glom@sam_data$log_sal
-  
-  FS12b.de <- phyloseq_to_deseq2(FS12b.glom, form)
-  FS12b.de <- DESeq(FS12b.de, test = 'Wald', fitType = 'parametric')
-  
-  # these are not both possible.  Right now only lfcshrink is doing anytihng
-  # res <- results(FS12b.de, cooksCutoff = FALSE, name = covariate)
-  res <- results(FS12b.de, name=covariate, cooksCutoff = cookscut)
-  sigtab <- lfcShrink(dds = FS12b.de, res=res, coef = covariate, type = shrink_type)
-  
-  # browser()
-  # resultsNames(FS12b.de)
-  
-  
-  # res <- res[!is.na(res$padj),]
-  # res <- res[res$padj < 0.1,]
-  # sigtab <- res[abs(res$log2FoldChange) > .1 ,]
-  sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(phyloseq_obj)[rownames(sigtab), ], "matrix"))
-  sigtab$newp <- format(round(sigtab$padj, digits = 3), scientific = TRUE)
-  # sigtab$Treatment <- ifelse(sigtab$log2FoldChange >=0, treat, paste('down',treat, sep = '_'))
-  sigtab$OTU <- rownames(sigtab)
-  sigtab[['direction']] <- ifelse(sigtab$log2FoldChange > 0 , 'increased', 'decreased')
-  # sigtab$salm <- ifelse(sigtab$log2FoldChange >0 , 'increased', 'decreased')
-  sigtab <- sigtab[order(sigtab$log2FoldChange),]
-  sigtab$OTU <- factor(sigtab$OTU, levels = sigtab$OTU)
-  sigtab$day <- day
-  sigtab$tissue <- tissue
-  sigtab[['covariate']] <- covariate
-  
-  fig_tit <- paste(covariate, 'associations with OTUs')
-  
-  p <- sigtab %>% 
-    filter(padj < 0.05) %>% 
-    ggplot(aes_string(x='OTU', y='log2FoldChange', fill='direction')) +
-    geom_col(color='black') + coord_flip() + geom_text(aes(label=Genus, y=0)) + 
-    ggtitle(fig_tit)
-  
-  return(list(p, sigtab))
-  
-  
-}
-
-
-# VFA associations with OTUs all treatments correcting for treatmetn
-# VFA_blarg <- 
-#   list(
-#     blarg_treat(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'lactate')[[2]],
-#     blarg_treat(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'butyrate')[[2]],
-#     blarg_treat(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'caproate')[[2]],
-#     blarg_treat(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'valerate')[[2]],
-#     blarg_treat(phyloseq_obj = FS12b, day = 'D21', tissue = 'X', covariate = 'lactate')[[2]],
-#     blarg_treat(phyloseq_obj = FS12b, day = 'D21', tissue = 'X', covariate = 'butyrate')[[2]],
-#     blarg_treat(phyloseq_obj = FS12b, day = 'D21', tissue = 'X', covariate = 'caproate')[[2]],
-#     blarg_treat(phyloseq_obj = FS12b, day = 'D21', tissue = 'X', covariate = 'valerate')[[2]]
-#   )
 
 ###
 # VFA associations with OTUs only RPS group #
-VFA_OTU_assoc_RPS <- 
+SCFA_OTU_assoc_RPS <- 
   list(
-    blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'butyrate')[[2]],
-    blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'caproate')[[2]],
-    blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'valerate')[[2]],
-    blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'succinate')[[2]]
-    # blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'X', covariate = 'butyrate')[[2]],
-    # blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'X', covariate = 'caproate')[[2]],
-    # blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'X', covariate = 'valerate')[[2]], 
-    # blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'X', covariate = 'succinate')[[2]]
+    DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'butyrate')[[2]],
+    DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'caproate')[[2]],
+    DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'valerate')[[2]],
+    DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'succinate')[[2]], 
+    DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'lactate')[[2]], 
+    DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'acetate')[[2]], 
+    DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'propionate')[[2]], 
+    DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'isobutyrate')[[2]],
+    DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'isovalerate')[[2]],
+    DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'phenylacetate')[[2]],
+    DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'oxalate')[[2]]
   ) %>% 
   bind_rows() %>%
-  filter(padj < 0.05 & abs(log2FoldChange) >.5)
+  filter(padj < 0.05 & abs(log2FoldChange) >.5) %>% 
+  mutate(node_name=paste(day, tissue, direction, covariate,sep = '_'))
 
 # SUPP FIG
 SCFA_OTU_ASSOC_FIG <- 
-  VFA_OTU_assoc_RPS %>% 
+  SCFA_OTU_assoc_RPS %>% 
   ggplot(aes(x=Genus, y=log2FoldChange, fill=covariate)) +
   geom_hline(yintercept = 0)+
   geom_point(shape=21, size=3) + 
@@ -1393,20 +1381,23 @@ ggsave('./output/fig_S1.jpeg',
 
 #### OTU SAL associations ######
 
+# this now has node names added
+OTUS_SAL_assoc_RPS <-
+  bind_rows(
+  DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D2', tissue = 'F', covariate = 'log_sal')[[2]],
+  DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D7', tissue = 'F', covariate = 'log_sal')[[2]],
+  # DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D14', tissue = 'F', covariate = 'log_sal')[[2]],
+  # DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'F', covariate = 'log_sal')[[2]],
+  DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'X', covariate = 'log_sal')[[2]],
+  DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'log_sal')[[2]]) %>% 
+  filter(padj < 0.05 & abs(log2FoldChange) >.5) %>% 
+  mutate(node_name=paste(day, tissue, direction, covariate,sep = '_'))
 
-OTUS_SAL_assoc_RPS <- bind_rows(
-  blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D2', tissue = 'F', covariate = 'log_sal')[[2]],
-  blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D7', tissue = 'F', covariate = 'log_sal')[[2]],
-  # blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D14', tissue = 'F', covariate = 'log_sal')
-  # blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'F', covariate = 'log_sal')
-  blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'X', covariate = 'log_sal')[[2]],
-  blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'log_sal')[[2]])
-# blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'I', covariate = 'log_sal')
 
 
-hist(OTUS_SAL_assoc_RPS$log2FoldChange)
 
-OTUS_RED_SAL_RPS <- OTUS_SAL_assoc_RPS %>% filter(padj< 0.05, log2FoldChange < -.25)
+OTUS_RED_SAL_RPS <- OTUS_SAL_assoc_RPS %>% 
+  filter(padj< 0.05, log2FoldChange < -.25)
 
 ### SUPP FIG ###
 ### USE ME ###
@@ -1433,18 +1424,6 @@ ggsave('./output/fig_S2.jpeg',
 
 
 
-# VFA_OTU_assoc_RPS <- 
-#   list(
-#     blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'butyrate')[[2]],
-#     blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'caproate')[[2]],
-#     blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'valerate')[[2]],
-#     blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'X', covariate = 'butyrate')[[2]],
-#     blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'X', covariate = 'caproate')[[2]],
-#     blarg_notreat(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'X', covariate = 'valerate')[[2]]
-#   ) %>% 
-#   bind_rows() %>%
-#   filter(padj < 0.05 & log2FoldChange >.5)
-
 
 # ### FOR SPARCC OTU OTU CORRELATIONS
 # RPS_cec_phy <- 
@@ -1460,37 +1439,69 @@ ggsave('./output/fig_S2.jpeg',
 
 
 ###
-VFA_OTU_assoc_RPS %>% group_by(OTU) %>% tally()
   
-VFA_OTU_assoc_RPS <-   VFA_OTU_assoc_RPS %>% filter(tissue == 'C') 
-
-hist(VFA_OTU_assoc_RPS$log2FoldChange, breaks = 50)
 
 
 
-
-VFA_OTU_edges <- 
-  VFA_OTU_assoc_RPS %>% 
+SCFA_OTU_edges <- 
+  SCFA_OTU_assoc_RPS %>% 
   filter(tissue == 'C') %>% 
   transmute(from=as.character(OTU),
             to=covariate,
             weight=log2FoldChange)
 
 OTU_NODES <- 
-  tibble(V_ID=unique(VFA_OTU_edges$from), 
+  tibble(V_ID=unique(SCFA_OTU_edges$from), 
          type='OTU')
 
 ### VFA VFA correlation calculation
+
+# I want D2 and D7 fecal shedding here
+# do i want X as well? start with just F2 and F7
+day_shed <- as(sample_data(FS12_RPS), 'data.frame') %>%
+  filter(tissue == 'F' & day %in% c('D2', 'D7')) %>% 
+  mutate(node_name=paste(day, 'shed', sep = '_')) %>% 
+  select(pignum,log_sal, node_name) %>%
+  spread(key=node_name, value = log_sal)
+
+# what's this about?
+day_shed[4,2] <- 1.698970
+
 meta <- as(sample_data(FS12_RPS), 'data.frame') %>% 
   filter(tissue == 'C')
 
-vfa_mat <- select(meta, butyrate, valerate, caproate, succinate) %>% as('matrix')
+vfa_shed_mat <- meta %>%
+  select(pignum, ends_with('ate'), AULC) %>%
+  left_join(day_shed) %>%
+  column_to_rownames('pignum') %>% 
+  as('matrix') %>%
+  scale()
 
 VFA_SIG_CORS <-
-  Hmisc::rcorr(vfa_mat) %>% 
+  Hmisc::rcorr(vfa_shed_mat) %>% 
   broom::tidy() %>%
-  filter(p.value < 0.05 & estimate > 0) 
+  filter(p.value < 0.05) %>% 
+  mutate(direction=ifelse(estimate >0, 'increased', 'decreased'), 
+         )
   
+tmp <- VFA_SIG_CORS %>%
+  filter(column1 %in% c('AULC', 'D2_shed', 'D7_shed')) %>% 
+  transmute(column1=paste(direction, column1, sep = '_'), 
+            column2=column2, 
+            estimate=-estimate) 
+
+tmp[5,]$column1 <- 'decreased_D7_shed' 
+tmp[5,]$column2 <- 'decreased_AULC'
+tmp[5,]$estimate <- 0.797
+
+
+VFA_SIG_CORS <- 
+  VFA_SIG_CORS %>% 
+  filter(!column1 %in% c('AULC', 'D2_shed', 'D7_shed')) %>% 
+  bind_rows(tmp)
+  
+
+
 VFA_VFA_EDGES <- 
   VFA_SIG_CORS %>% 
   transmute(from=column1, 
@@ -1499,32 +1510,53 @@ VFA_VFA_EDGES <-
 
 VFA_NODES <- 
   tibble(V_ID=unique(c(VFA_SIG_CORS$column1, VFA_SIG_CORS$column2)), 
-         type='VFA')
+         type=case_when(
+           grepl('decreased', V_ID)     ~ 'Salmonella', 
+           TRUE                         ~ 'VFA'
+         )) %>% 
+  filter(V_ID %in% c('succinate', 'butyrate', 'caproate', 'valerate', 
+                     'decreased_D2_shed', 'decreased_D7_shed', 'decreased_AULC'))
 
 
 ### OTU OTU edges ###
 # read in fastspar results
-corP <- 
-  read_tsv('./output/RPS_CECC_COR_pvalues.tsv') %>%
-  gather(-`#OTU ID`, key='to',value='pval' ) %>% 
-  mutate(from=`#OTU ID`) %>% 
-  select(from, to, pval)
+# corP <- 
+#   read_tsv('./output/RPS_CECC_COR_pvalues.tsv') %>%
+#   gather(-`#OTU ID`, key='to',value='pval' ) %>% 
+#   mutate(from=`#OTU ID`) %>% 
+#   select(from, to, pval)
+# 
+# corR <- 
+#   read_tsv('./output/RPS_cec_correlation.tsv')%>%
+#   gather(-`#OTU ID`, key='to',value='r_corr' ) %>%
+#   mutate(from=`#OTU ID`) %>% 
+#   select(from, to, r_corr)
+# 
+# 
+# OTU_OTU_EDGES <- 
+#   corP %>%
+#   left_join(corR) %>%
+#   filter(r_corr > .6 & pval < 0.05) %>% 
+#   filter(from %in% OTU_NODES$V_ID & to %in% OTU_NODES$V_ID) %>% 
+#   transmute(from=from, to =to, weight=r_corr)
+# 
 
-corR <- 
-  read_tsv('./output/RPS_cec_correlation.tsv')%>%
-  gather(-`#OTU ID`, key='to',value='r_corr' ) %>%
-  mutate(from=`#OTU ID`) %>% 
-  select(from, to, r_corr)
+# OTU SAL EDGES
+#from #to #weight
 
+OTU_SAL_EDGES <- 
+  OTUS_RED_SAL_RPS %>% 
+  transmute(from=as.character(OTU), 
+            to=paste(direction, day, 'shed', sep = '_'), 
+            weight=-log2FoldChange/max(-log2FoldChange))
+  
 
-OTU_OTU_EDGES <- 
-  corP %>%
-  left_join(corR) %>%
-  filter(r_corr > .6 & pval < 0.05) %>% 
-  filter(from %in% OTU_NODES$V_ID & to %in% OTU_NODES$V_ID) %>% 
-  transmute(from=from, to =to, weight=r_corr)
-
-
+OTU_SAL_NODES <- 
+  tibble(V_ID=unique(c(OTU_SAL_EDGES$from, OTU_SAL_EDGES$to)), 
+         type=case_when(
+           grepl('Otu', V_ID)           ~ 'OTU', 
+           TRUE                         ~ 'Salmonella'
+         ))
 
 ###
 
@@ -1532,10 +1564,10 @@ OTU_OTU_EDGES <-
 
 #
 
-NODES <- bind_rows(VFA_NODES, OTU_NODES)
-EDGES <- bind_rows(VFA_OTU_edges, VFA_VFA_EDGES)
+NODES <- unique(bind_rows(VFA_NODES, OTU_NODES, OTU_SAL_NODES))
+EDGES <- unique(bind_rows(SCFA_OTU_edges, VFA_VFA_EDGES, OTU_SAL_EDGES))
 
-
+# filtering here...
 NODES <- 
   NODES %>%
   filter(V_ID %in% OTUS_RED_SAL_RPS$OTU | V_ID %in% VFA_NODES$V_ID ) %>% 
@@ -1548,7 +1580,7 @@ library(geomnet)
 NET <- fortify(as.edgedf(EDGES), NODES)
 
 ### geomnet
-
+set.seed(1)
 
 gg <- ggplot(data = NET, aes(from_id = from_id, to_id = to_id)) +
   geom_net(colour = "darkred", labelon=TRUE, size = 7,layout.alg = 'fruchtermanreingold', 
@@ -1576,7 +1608,7 @@ gn2TMP <-
   transmute(from=to, x=xend, y=yend)
 
 NODE_DATA <- bind_rows(gn1TMP, gn2TMP) %>% unique()
-SCFA_NODES <- NODE_DATA %>% filter(!grepl('Otu', from))
+SCFA_NODES <- NODE_DATA %>% filter(!grepl('Otu', from)) # should be 'other_nodes'
 
 
 ONODES <- 
@@ -1614,6 +1646,8 @@ FIG7 <-
   # geom_text_repel(aes(label=Genus))+
   theme(legend.position = 'bottom')
 
+
+FIG7
 
 ggsave('./output/figure7.jpeg',
        plot = FIG7,
@@ -2440,6 +2474,108 @@ ALLSTAR_TAB <-
 # 
 # FS12_gath %>% ggplot(aes(x=pignum, y=relabund)) + geom_col()
 # 
+# 
+# blarg_treat <- function(phyloseq_obj, day, tissue, covariate, shrink_type='apeglm', cookscut=TRUE){
+#   form <- formula(paste('~', covariate, '+ treatment'))
+#   # print(form)
+#   # browser()
+#   FS12b.glom <- phyloseq_obj %>%
+#     prune_samples(samples = phyloseq_obj@sam_data$day %in% c(day) & phyloseq_obj@sam_data$tissue == tissue & !is.na(phyloseq_obj@sam_data[[covariate]]))
+#   FS12b.glom@sam_data[[covariate]] <- scale(FS12b.glom@sam_data[[covariate]])
+#   FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
+#   
+#   # FS12b.glom@sam_data$log_sal
+#   
+#   FS12b.de <- phyloseq_to_deseq2(FS12b.glom, form)
+#   FS12b.de <- DESeq(FS12b.de, test = 'Wald', fitType = 'parametric')
+#   
+#   # these are not both possible.  Right now only lfcshrink is doing anytihng
+#   # res <- results(FS12b.de, cooksCutoff = FALSE, name = covariate)
+#   res <- results(FS12b.de, name=covariate, cooksCutoff = cookscut)
+#   sigtab <- lfcShrink(dds = FS12b.de, res=res, coef = covariate, type = shrink_type)
+#   
+#   # browser()
+#   # resultsNames(FS12b.de)
+#   
+#   
+#   # res <- res[!is.na(res$padj),]
+#   # res <- res[res$padj < 0.1,]
+#   # sigtab <- res[abs(res$log2FoldChange) > .1 ,]
+#   sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(phyloseq_obj)[rownames(sigtab), ], "matrix"))
+#   sigtab$newp <- format(round(sigtab$padj, digits = 3), scientific = TRUE)
+#   # sigtab$Treatment <- ifelse(sigtab$log2FoldChange >=0, treat, paste('down',treat, sep = '_'))
+#   sigtab$OTU <- rownames(sigtab)
+#   sigtab[['direction']] <- ifelse(sigtab$log2FoldChange > 0 , 'increased', 'decreased')
+#   # sigtab$salm <- ifelse(sigtab$log2FoldChange >0 , 'increased', 'decreased')
+#   sigtab <- sigtab[order(sigtab$log2FoldChange),]
+#   sigtab$OTU <- factor(sigtab$OTU, levels = sigtab$OTU)
+#   sigtab$day <- day
+#   sigtab$tissue <- tissue
+#   sigtab[['covariate']] <- covariate
+#   
+#   fig_tit <- paste(covariate, 'associations with OTUs')
+#   
+#   p <- sigtab %>% 
+#     filter(padj < 0.05) %>% 
+#     ggplot(aes_string(x='OTU', y='log2FoldChange', fill='direction')) +
+#     geom_col(color='black') + coord_flip() + geom_text(aes(label=Genus, y=0)) + 
+#     ggtitle(fig_tit)
+#   
+#   return(list(p, sigtab))
+#   
+#   
+# }
+# 
+# blarg_notreat <- function(phyloseq_obj, day, tissue, covariate, shrink_type='apeglm', cookscut=TRUE){
+#   form <- formula(paste('~', covariate))
+#   # print(form)
+#   # browser()
+#   FS12b.glom <- phyloseq_obj %>%
+#     prune_samples(samples = phyloseq_obj@sam_data$day %in% c(day) & phyloseq_obj@sam_data$tissue == tissue & !is.na(phyloseq_obj@sam_data[[covariate]]))
+#   FS12b.glom@sam_data[[covariate]] <- scale(FS12b.glom@sam_data[[covariate]])
+#   FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
+#   
+#   # FS12b.glom@sam_data$log_sal
+#   
+#   FS12b.de <- phyloseq_to_deseq2(FS12b.glom, form)
+#   FS12b.de <- DESeq(FS12b.de, test = 'Wald', fitType = 'parametric')
+#   
+#   # these are not both possible.  Right now only lfcshrink is doing anytihng
+#   # res <- results(FS12b.de, cooksCutoff = FALSE, name = covariate)
+#   res <- results(FS12b.de, name=covariate, cooksCutoff = cookscut)
+#   sigtab <- lfcShrink(dds = FS12b.de, res=res, coef = covariate, type = shrink_type)
+#   
+#   # browser()
+#   # resultsNames(FS12b.de)
+#   
+#   
+#   # res <- res[!is.na(res$padj),]
+#   # res <- res[res$padj < 0.1,]
+#   # sigtab <- res[abs(res$log2FoldChange) > .1 ,]
+#   sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(phyloseq_obj)[rownames(sigtab), ], "matrix"))
+#   sigtab$newp <- format(round(sigtab$padj, digits = 3), scientific = TRUE)
+#   # sigtab$Treatment <- ifelse(sigtab$log2FoldChange >=0, treat, paste('down',treat, sep = '_'))
+#   sigtab$OTU <- rownames(sigtab)
+#   sigtab[['direction']] <- ifelse(sigtab$log2FoldChange > 0 , 'increased', 'decreased')
+#   # sigtab$salm <- ifelse(sigtab$log2FoldChange >0 , 'increased', 'decreased')
+#   sigtab <- sigtab[order(sigtab$log2FoldChange),]
+#   sigtab$OTU <- factor(sigtab$OTU, levels = sigtab$OTU)
+#   sigtab$day <- day
+#   sigtab$tissue <- tissue
+#   sigtab[['covariate']] <- covariate
+#   
+#   fig_tit <- paste(covariate, 'associations with OTUs')
+#   
+#   p <- sigtab %>% 
+#     filter(padj < 0.05) %>% 
+#     ggplot(aes_string(x='OTU', y='log2FoldChange', fill='direction')) +
+#     geom_col(color='black') + coord_flip() + geom_text(aes(label=Genus, y=0)) + 
+#     ggtitle(fig_tit)
+#   
+#   return(list(p, sigtab))
+#   
+#   
+# }
 # 
 
 

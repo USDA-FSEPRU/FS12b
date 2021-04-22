@@ -75,11 +75,14 @@ hist(rowSums(countData > 5), breaks = 100)
 
 otu_tab <- otu_table(countData, taxa_are_rows = TRUE)
 metadat <- sample_data(MET)
+tax_tab <- descripts %>% column_to_rownames('pathway') %>% as.matrix() %>% tax_table()
+
+
 
 metadat$treatment <- factor(metadat$treatment, levels = c('Control', 'RPS', 'Acid', 'RCS'))
 
 
-picrust_phylo <- phyloseq(otu_tab, metadat)
+picrust_phylo <- phyloseq(otu_tab, metadat, tax_tab)
 
 hist(taxa_sums(picrust_phylo), breaks = 1000)
 
@@ -189,35 +192,35 @@ RPS_vs_control_picrust <- list(
   picrust_difabund(picrust_phylo, tissue = 'X', day = 'D21', descripts = descripts),
   picrust_difabund(picrust_phylo, tissue = 'C', day = 'D21', descripts = descripts),
   picrust_difabund(picrust_phylo, tissue = 'I', day = 'D21', descripts = descripts))
-
-RPS_vs_control_KO <- list(
-  KO_difabund(picrust_phylo, tissue='F', day='D0', descripts = descripts),
-  KO_difabund(picrust_phylo, tissue='F', day='D2', descripts = descripts),
-  KO_difabund(picrust_phylo, tissue='F', day='D7', descripts = descripts),
-  KO_difabund(picrust_phylo, tissue='F', day='D14', descripts = descripts),
-  KO_difabund(picrust_phylo, tissue='F', day='D21', descripts = descripts),
-  KO_difabund(picrust_phylo, tissue='X', day='D21', descripts = descripts),
-  KO_difabund(picrust_phylo, tissue='C', day='D21', descripts = descripts),
-  KO_difabund(picrust_phylo, tissue='I', day='D21', descripts = descripts))
-
-CONTROL_VS_RPS_KO <- bind_rows(lapply(RPS_vs_control_KO, '[[', 1)) %>% 
-  mutate(day=factor(day, levels = c('D0', 'D2', 'D7', 'D14', 'D21')), 
-         KO=fct_reorder(KO, log2FoldChange), 
-         description=fct_reorder(description, log2FoldChange))
-
-
-CONTROL_VS_RPS_KO %>% filter(day == 'D14') %>% 
-  arrange(desc(log2FoldChange)) %>% 
-  ggplot(aes(x=KO, y=log2FoldChange)) +
-  geom_hline(yintercept = 0)+
-  geom_text(aes(label=description, y=0)) +
-  geom_point(aes(color=day, shape=tissue)) +
-  coord_flip() + 
-  scale_color_brewer(palette = 'Set1') +
-  # facet_wrap(~ptype, scales = 'free_y', ncol = 1) + 
-  theme(panel.grid.major = element_line(color='grey'))
-
-
+# 
+# RPS_vs_control_KO <- list(
+#   KO_difabund(picrust_phylo, tissue='F', day='D0', descripts = descripts),
+#   KO_difabund(picrust_phylo, tissue='F', day='D2', descripts = descripts),
+#   KO_difabund(picrust_phylo, tissue='F', day='D7', descripts = descripts),
+#   KO_difabund(picrust_phylo, tissue='F', day='D14', descripts = descripts),
+#   KO_difabund(picrust_phylo, tissue='F', day='D21', descripts = descripts),
+#   KO_difabund(picrust_phylo, tissue='X', day='D21', descripts = descripts),
+#   KO_difabund(picrust_phylo, tissue='C', day='D21', descripts = descripts),
+#   KO_difabund(picrust_phylo, tissue='I', day='D21', descripts = descripts))
+# 
+# CONTROL_VS_RPS_KO <- bind_rows(lapply(RPS_vs_control_KO, '[[', 1)) %>% 
+#   mutate(day=factor(day, levels = c('D0', 'D2', 'D7', 'D14', 'D21')), 
+#          KO=fct_reorder(KO, log2FoldChange), 
+#          description=fct_reorder(description, log2FoldChange))
+# 
+# 
+# CONTROL_VS_RPS_KO %>% filter(day == 'D14') %>% 
+#   arrange(desc(log2FoldChange)) %>% 
+#   ggplot(aes(x=KO, y=log2FoldChange)) +
+#   geom_hline(yintercept = 0)+
+#   geom_text(aes(label=description, y=0)) +
+#   geom_point(aes(color=day, shape=tissue)) +
+#   coord_flip() + 
+#   scale_color_brewer(palette = 'Set1') +
+#   # facet_wrap(~ptype, scales = 'free_y', ncol = 1) + 
+#   theme(panel.grid.major = element_line(color='grey'))
+# 
+# 
 
 
 
@@ -305,32 +308,6 @@ CONTROL_VS_RPS_PICRUST %>% filter(tissue !='F') %>%
   geom_point(aes(color=day, shape=tissue)) + coord_flip() + 
   scale_color_brewer(palette = 'Set1')
 
-
-D0_fec <- 
-  picrust_phylo %>%
-  prune_samples(samples = picrust_phylo@sam_data$tissue =='X' &
-                          picrust_phylo@sam_data$day =='D21') %>% 
-  prune_taxa(taxa = taxa_sums(picrust_phylo) > 5) %>% 
-  phyloseq_to_deseq2(design = ~ treatment)
-
-
-
-D0_deseq <- DESeq(D0_fec)
-
-resultsNames(D0_deseq)
-
-res <- 
-  results(D0_deseq, name = "treatment_RPS_vs_Control") %>%
-  as.data.frame() %>% 
-  filter(padj < 0.1) %>% 
-  rownames_to_column(var = 'pathway') %>% 
-  left_join(descripts) %>% 
-  mutate(pathway=fct_reorder(pathway, log2FoldChange))
-
-
-
-res %>% ggplot(aes(x=log2FoldChange, y=pathway)) + geom_col() + 
-  geom_text(aes(x=0, label=description)) + xlim(-10, 10)
 
 
 # library(DESeq2)
@@ -455,7 +432,7 @@ highlow_KO <-
   }
 
 
-highlow_KO(FS12b_HL, tissue = 'F', day = 'D7', descripts = descripts, pval = 0.05)
+# highlow_KO(FS12b_HL, tissue = 'F', day = 'D7', descripts = descripts, pval = 0.05)
 
 
 highlow_picrust(FS12b_HL, tissue = 'F', day = 'D7', descripts = descripts, pval = 0.05)
@@ -511,7 +488,7 @@ HL_phylo <-
   phyloseq_to_deseq2(design = ~ scale(AULC))
 
 
-
+scale(FS12b_HL@sam_data$AULC)
 
 
 deseq_obj <- DESeq(HL_phylo)
@@ -539,3 +516,69 @@ res %>% ggplot(aes(x=log2FoldChange, y=pathway)) + geom_col() +
   geom_text(aes(x=0, label=description)) + xlim(-10, 10)
 
 
+
+
+
+RES <- 
+  list(
+DESeq_cov_asso(phyloseq_obj = FS12b_HL, day = 'D2',tissue = 'F', covariate = 'log_sal', plot_lab = 'description',l2fc_plot = 0.01),
+DESeq_cov_asso(phyloseq_obj = FS12b_HL, day = 'D7',tissue = 'F', covariate = 'log_sal', plot_lab = 'description',l2fc_plot = 0.01),
+DESeq_cov_asso(phyloseq_obj = FS12b_HL, day = 'D14',tissue = 'F', covariate = 'log_sal', plot_lab = 'description',l2fc_plot = 0.01),
+DESeq_cov_asso(phyloseq_obj = FS12b_HL, day = 'D21',tissue = 'F', covariate = 'log_sal', plot_lab = 'description',l2fc_plot = 0.01),
+# DESeq_cov_asso(phyloseq_obj = FS12b_HL, day = 'D21',tissue = 'C', covariate = 'log_sal', plot_lab = 'description',l2fc_plot = 0.01)
+DESeq_cov_asso(phyloseq_obj = FS12b_HL, day = 'D21',tissue = 'X', covariate = 'log_sal', plot_lab = 'description',l2fc_plot = 0.01),
+DESeq_cov_asso(phyloseq_obj = FS12b_HL, day = 'D21',tissue = 'C', covariate = 'valerate', plot_lab = 'description',l2fc_plot = 0.01),
+DESeq_cov_asso(phyloseq_obj = FS12b_HL, day = 'D21',tissue = 'C', covariate = 'caproate', plot_lab = 'description',l2fc_plot = 0.01),
+DESeq_cov_asso(phyloseq_obj = FS12b_HL, day = 'D21',tissue = 'C', covariate = 'butyrate', plot_lab = 'description',l2fc_plot = 0.01),
+DESeq_cov_asso(phyloseq_obj = FS12b_HL, day = 'D21',tissue = 'C', covariate = 'succinate', plot_lab = 'description',l2fc_plot = 0.01),
+DESeq_cov_asso(phyloseq_obj = FS12b_HL, day = 'D21',tissue = 'C', covariate = 'propionate', plot_lab = 'description',l2fc_plot = 0.01),
+DESeq_cov_asso(phyloseq_obj = FS12b_HL, day = 'D21',tissue = 'C', covariate = 'lactate', plot_lab = 'description',l2fc_plot = 0.01),
+DESeq_cov_asso(phyloseq_obj = FS12b_HL, day = 'D21',tissue = 'C', covariate = 'acetate', plot_lab = 'description',l2fc_plot = 0.01),
+DESeq_cov_asso(phyloseq_obj = FS12b_HL, day = 'D21',tissue = 'C', covariate = 'phenylacetate', plot_lab = 'description',l2fc_plot = 0.01),
+DESeq_cov_asso(phyloseq_obj = FS12b_HL, day = 'D21',tissue = 'C', covariate = 'isobutyrate', plot_lab = 'description',l2fc_plot = 0.01),
+DESeq_cov_asso(phyloseq_obj = FS12b_HL, day = 'D21',tissue = 'C', covariate = 'isovalerate', plot_lab = 'description',l2fc_plot = 0.01),
+DESeq_cov_asso(phyloseq_obj = FS12b_HL, day = 'D21',tissue = 'C', covariate = 'oxalate', plot_lab = 'description',l2fc_plot = 0.01)
+)
+
+
+huh <- RES %>% map(pluck(2)) %>% bind_rows() %>% filter(padj < 0.05)
+
+
+
+biosynth <- huh %>% filter(grepl('synthesis', description))
+degrade <- huh %>% filter(grepl('degradation', description))
+others <- huh %>% filter(!grepl('synthesis', description) & !grepl('degradation', description))
+
+
+biosynth %>% group_by(OTU, description) %>% tally() %>% arrange(desc(n))
+degrade %>% group_by(OTU, description) %>% tally() %>% arrange(desc(n))
+others %>% group_by(OTU, description) %>% tally() %>% arrange(desc(n))
+
+
+
+
+
+
+
+######## all now #######
+
+RES <- 
+  list(
+    DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D2',tissue = 'F', covariate = 'log_sal', plot_lab = 'description',l2fc_plot = 0.01, treatment = T),
+    DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D7',tissue = 'F', covariate = 'log_sal', plot_lab = 'description',l2fc_plot = 0.01, treatment = T),
+    DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D14',tissue = 'F', covariate = 'log_sal', plot_lab = 'description',l2fc_plot = 0.01, treatment = T),
+    DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21',tissue = 'F', covariate = 'log_sal', plot_lab = 'description',l2fc_plot = 0.01, treatment = T),
+    # DESeq_cov_asso(phyloseq_obj = FS12b_HL, day = 'D21',tissue = 'C', covariate = 'log_sal', plot_lab = 'description',l2fc_plot = 0.01)
+    DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21',tissue = 'X', covariate = 'log_sal', plot_lab = 'description',l2fc_plot = 0.01, treatment = T),
+    DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21',tissue = 'C', covariate = 'valerate', plot_lab = 'description',l2fc_plot = 0.01, treatment = T),
+    DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21',tissue = 'C', covariate = 'caproate', plot_lab = 'description',l2fc_plot = 0.01, treatment = T),
+    DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21',tissue = 'C', covariate = 'butyrate', plot_lab = 'description',l2fc_plot = 0.01, treatment = T),
+    DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21',tissue = 'C', covariate = 'succinate', plot_lab = 'description',l2fc_plot = 0.01, treatment = T),
+    DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21',tissue = 'C', covariate = 'propionate', plot_lab = 'description',l2fc_plot = 0.01, treatment = T),
+    DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21',tissue = 'C', covariate = 'lactate', plot_lab = 'description',l2fc_plot = 0.01, treatment = T),
+    DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21',tissue = 'C', covariate = 'acetate', plot_lab = 'description',l2fc_plot = 0.01, treatment = T),
+    DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21',tissue = 'C', covariate = 'phenylacetate', plot_lab = 'description',l2fc_plot = 0.01, treatment = T),
+    DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21',tissue = 'C', covariate = 'isobutyrate', plot_lab = 'description',l2fc_plot = 0.01, treatment = T),
+    DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21',tissue = 'C', covariate = 'isovalerate', plot_lab = 'description',l2fc_plot = 0.01, treatment = T),
+    DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21',tissue = 'C', covariate = 'oxalate', plot_lab = 'description',l2fc_plot = 0.01, treatment = T)
+  )

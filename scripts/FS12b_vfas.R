@@ -1,6 +1,7 @@
 # setwd('')
 library(tidyverse)
 library(cowplot)
+library(broom)
 theme_set(theme_cowplot())
 
 vfas <- read_tsv('./data/FS12b_meta.tsv')
