@@ -18,9 +18,9 @@ library(cowplot)
 #   column_to_rownames(var='Group') %>%
 #   as.matrix() %>% 
 #   otu_table(taxa_are_rows = FALSE)
-OTU <- phyloseq::import_mothur(mothur_shared_file = './raw_data/NEW_MOTHUR_OUT/FS12b.shared') %>% t()
+OTU <- phyloseq::import_mothur(mothur_shared_file = './data/FS12b.shared') %>% t()
 
-TAX <- phyloseq::import_mothur(mothur_constaxonomy_file = './raw_data/NEW_MOTHUR_OUT/FS12b_OTU.taxonomy')
+TAX <- phyloseq::import_mothur(mothur_constaxonomy_file = './data/FS12b_OTU.taxonomy')
 colnames(TAX) <- c('Domain', 'Phylum', 'Class', 'Order', 'Family' , 'Genus' )
 
 # 
