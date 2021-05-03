@@ -79,7 +79,7 @@ test_fun <-
       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'F', covariate = 'AULC', treatment = T)[[2]]
     ) %>% 
     bind_rows() %>%
-    # filter(padj < 0.05 & abs(log2FoldChange) >.5) %>%
+    filter(padj < 0.05 & abs(log2FoldChange) >.5) %>%
     # filter(padj < 0.05 ) %>% 
     mutate(node_name=paste(day, tissue, direction, covariate,sep = '_'))
   
@@ -108,19 +108,19 @@ test_fun <-
       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'oxalate', treatment = T)[[2]]
     ) %>% 
     bind_rows() %>%
-    # filter(padj < 0.05 & abs(log2FoldChange) >.5) %>%
+    filter(padj < 0.05 & abs(log2FoldChange) >.5) %>%
     mutate(node_name=paste(day, tissue, direction, covariate,sep = '_'))
   
-  bind_rows(SCFA_OTU_assoc_treat, sal_OTU_assoc_treat) %>%
-    mutate(BH_all_P = p.adjust(pvalue, method = 'fdr')) %>% 
-    filter(abs(log2FoldChange) > .5) %>% 
-    ggplot(aes(x=BH_all_P, y=pvalue)) + geom_point()
-  
-  
+  # bind_rows(SCFA_OTU_assoc_treat, sal_OTU_assoc_treat) %>%
+  #   mutate(BH_all_P = p.adjust(pvalue, method = 'fdr')) %>% 
+  #   filter(abs(log2FoldChange) > .5) %>% 
+  #   ggplot(aes(x=BH_all_P, y=pvalue)) + geom_point()
+  # 
+  # 
   edges <- bind_rows(SCFA_OTU_assoc_treat, sal_OTU_assoc_treat) %>% 
-    mutate(BH_all_P = p.adjust(pvalue, method = 'fdr')) %>%   # FDR on all tests for both scfa and sal
-    filter(BH_all_P < 0.05) %>% 
-    filter(abs(log2FoldChange) > .5) %>% 
+    # mutate(BH_all_P = p.adjust(pvalue, method = 'fdr')) %>%   # FDR on all tests for both scfa and sal
+    # filter(BH_all_P < 0.05) %>% 
+    # filter(abs(log2FoldChange) > .5) %>% 
     transmute(from=as.character(OTU), 
               to=sub('D[0-9]+_[A-Z]_','',node_name), 
               weight=abs(log2FoldChange))
@@ -229,10 +229,10 @@ test_fun <-
   
 }
 
-test_fun(phyloseq_obj = FS12b)
+all_treats <- test_fun(phyloseq_obj = FS12b)
 
 
-hmmmmmm <- test_fun(phyloseq_obj = FS12_RPS)
+just_RPS <- test_fun(phyloseq_obj = FS12_RPS)
 
 all_melt <- 
   FS12b %>% 
