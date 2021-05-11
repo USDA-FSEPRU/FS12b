@@ -9,8 +9,8 @@ vfas <- read_tsv('./data/FS12b_meta.tsv')
 
 colnames(vfas)
 vfas <- read_csv('./data/FS12b_vfas.csv')
-vfas <- vfas %>% filter(treatment %in% c('control', 'RPS', 'Acid','RCS'))
-vfas$treatment <- factor(vfas$treatment, levels = c('control', 'RPS', 'Acid', 'Zn+Cu', 'RCS', 'Bglu'))
+vfas <- vfas %>% filter(treatment %in% c('Control', 'RPS', 'Acid','RCS'))
+vfas$treatment <- factor(vfas$treatment, levels = c('Control', 'RPS', 'Acid', 'Zn+Cu', 'RCS', 'Bglu'))
 
 vfas.gather <- vfas %>% gather(key = VFA, value = mM, -(pignum:hour))
 
@@ -37,7 +37,7 @@ scfa_means <-
   emmeans(val_test, specs =  ~ treatment) %>% tidy(conf.int=TRUE) %>% mutate(scfa='valerate'),
   emmeans(cap_test, specs =  ~ treatment) %>% tidy(conf.int=TRUE) %>% mutate(scfa='caproate'),
   emmeans(suc_test, specs =  ~ treatment) %>% tidy(conf.int=TRUE) %>% mutate(scfa='succinate'))) %>% 
-  mutate(treatment=factor(treatment, levels = c('control', 'RPS', 'Acid', 'RCS')), 
+  mutate(treatment=factor(treatment, levels = c('Control', 'RPS', 'Acid', 'RCS')), 
          scfa=factor(scfa, levels = c('butyrate', 'valerate', 'caproate', 'succinate')))
 
 # summary(but_test)
@@ -52,9 +52,12 @@ TukeyHSD(val_test) %>% tidy()%>% mutate(scfa='valerate'),
 TukeyHSD(cap_test) %>% tidy()%>% mutate(scfa='caproate'),
 TukeyHSD(suc_test) %>% tidy()%>% mutate(scfa='succinate')
 )) %>% 
-  mutate(contrast=factor(contrast, levels=c('RCS-control', 
-                                            'Acid-control', 
-                                            'RPS-control')),
+  filter(contrast %in% c('RCS-Control', 
+                         'Acid-Control', 
+                         'RPS-Control')) %>% 
+  mutate(contrast=factor(contrast, levels=c('RCS-Control', 
+                                            'Acid-Control', 
+                                            'RPS-Control')),
          scfa=factor(scfa, levels = c('butyrate', 'caproate', 'valerate', 'succinate'))) %>% 
   mutate(p.plot=ifelse(adj.p.value < 0.05, adj.p.value, NA))
 
@@ -76,7 +79,7 @@ FIG6A
 FIG6B <- 
   scfa_tests %>%
   mutate(scfa=factor(scfa, levels = c('butyrate', 'valerate', 'caproate', 'succinate'))) %>% 
-  filter(grepl('control', contrast)) %>% 
+  filter(grepl('Control', contrast)) %>% 
   ggplot(aes(x=contrast, y=estimate, ymin=conf.low, ymax=conf.high)) +
   geom_hline(yintercept = 0)+
   geom_pointrange(aes(color=contrast)) + 
@@ -112,7 +115,7 @@ RPS_cec_scfas <-
   select(pignum,  AULC, log_sal, tissue, day) %>% 
   filter(day =='D21' & tissue == 'C') %>%
   right_join(scfas) %>% 
-  filter(treatment == 'RPS') %>% 
+  filter(treatment == 'RPS') %>%
   select(-tissue, -day, -hour, -treatment) %>%
   column_to_rownames(var = 'pignum') %>% 
   as.matrix()
@@ -159,20 +162,73 @@ ggsave(filename = './output/figure6.jpeg', device = 'jpeg',
 ### D21 CECUM ALL VFAS  ###
 
 
-filter(vfas.gather, hour == 0 ) %>% 
-  ggplot(aes(x=treatment, y=mM, group=set, fill=treatment)) +
-  geom_boxplot(outlier.alpha = 0) +geom_jitter(shape=21, size=1.5, stroke=1, alpha=.75, width = .25)+
-  scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
-  facet_wrap(~VFA, scales = 'free')
 
 
-unique(vfas.gather$VFA)
+RPS_cec_scfas <- 
+  MET %>%
+  select(pignum,  AULC, log_sal, tissue, day) %>% 
+  filter(day =='D21' & tissue == 'C') %>%
+  right_join(scfas) %>% 
+  # filter(treatment == 'RPS') %>%
+  select(-tissue, -day, -hour, -treatment) %>%
+  column_to_rownames(var = 'pignum') %>% 
+  as.matrix()
 
-filter(vfas.gather, hour == 0 & VFA %in% c('butyrate', 'valerate', 'caproate', 'total')) %>%
-  ggplot(aes(x=treatment, y=mM, group=set, fill=treatment)) +
-  geom_boxplot(outlier.alpha = 0) +geom_jitter(shape=21, size=1.5, stroke=1, alpha=.75, width = .25)+
-  scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
-  facet_wrap(~VFA, scales = 'free', nrow = 1) + ggtitle("Cecal SCFAs 21 days post challenge, no incubation")
+
+RPS_cec_scfas_DF <-   MET %>%
+  select(pignum,treatment,  AULC, log_sal, tissue, day) %>% 
+  filter(day =='D21' & tissue == 'C') %>%
+  right_join(scfas) %>% 
+  # filter(treatment == 'RPS') %>%
+  select(-tissue, -day, -hour)
+
+
+cor_tests <- 
+  Hmisc::rcorr(RPS_cec_scfas) %>%
+  tidy() %>% 
+  filter(column1 %in% c('AULC', 'butyrate', 'valerate', 'caproate', 'succinate')) %>% 
+  filter(column2 %in% c('AULC', 'butyrate', 'valerate', 'caproate', 'succinate')) %>% 
+  mutate(scfa=column1) %>% 
+  filter(column2=='AULC') %>% 
+  mutate(concentration=c(17, 5, .7, .45), 
+         AULC=c(10,10,10,10), 
+         stats=paste('r=', round(estimate, 2), '\nP=', round(p.value, 3)), 
+         scfa=factor(scfa, levels = c('butyrate', 'valerate', 'caproate', 'succinate')))
+
+
+TST <- 
+  RPS_cec_scfas_DF %>%
+  as.data.frame() %>% 
+  gather(-c(AULC, pignum, treatment), key='scfa', value='concentration') %>% 
+  filter(scfa %in% c('butyrate', 'valerate', 'caproate', 'succinate')) %>%
+  mutate(scfa=factor(scfa, levels = c('butyrate', 'valerate', 'caproate', 'succinate'))) %>% 
+  ggplot(aes(x=concentration, y=AULC)) +
+  geom_smooth(method = 'lm',se=F, color='black') + 
+  geom_text(data=cor_tests, aes(label=stats), size=4, hjust=-.5)+
+  geom_point(aes(fill=treatment), shape=21, size=3, color='black') +
+  facet_wrap(~scfa, scales = 'free')+
+  scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple'))  
+ 
+
+TST 
+
+ggsave('./output/SCFA_AULC_cor_supp.jpg', height = 5, width = 7, units = 'in')
+# #########
+# 
+# filter(vfas.gather, hour == 0 ) %>% 
+#   ggplot(aes(x=treatment, y=mM, group=set, fill=treatment)) +
+#   geom_boxplot(outlier.alpha = 0) +geom_jitter(shape=21, size=1.5, stroke=1, alpha=.75, width = .25)+
+#   scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
+#   facet_wrap(~VFA, scales = 'free')
+# 
+# 
+# unique(vfas.gather$VFA)
+# 
+# filter(vfas.gather, hour == 0 & VFA %in% c('butyrate', 'valerate', 'caproate', 'total')) %>%
+#   ggplot(aes(x=treatment, y=mM, group=set, fill=treatment)) +
+#   geom_boxplot(outlier.alpha = 0) +geom_jitter(shape=21, size=1.5, stroke=1, alpha=.75, width = .25)+
+#   scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
+#   facet_wrap(~VFA, scales = 'free', nrow = 1) + ggtitle("Cecal SCFAs 21 days post challenge, no incubation")
 
 #
 # filter(vfas.gather, hour == 0 &

@@ -238,7 +238,8 @@ hist(sample_sums(FS12b), breaks=100)
 ### ALPHA AND DISPERSION ###
 
 
-FS12b@otu_table
+# FS12b@otu_table
+min(sample_sums(FS12b))
 FS12b_jac <- vegdist(rarefy_even_depth(FS12b)@otu_table, method = 'bray')
 # FS12b_jac
 
@@ -904,7 +905,7 @@ FIG3C <-
   tocontf %>% 
   filter(log2FoldChange > 0) %>%
   mutate(Order=fct_infreq(Order),
-         Order=fct_lump_n(Order, 8)) %>% 
+         Order=fct_lump_n(Order, 8, ties.method = 'first')) %>% #pull(Order) %>% levels()
   mutate(comp = factor(comp, levels = c('RPS_vs_Control', 'Acid_vs_Control', 'RCS_vs_Control'))) %>% 
   group_by(comp, Order) %>%
   tally() %>% 
@@ -941,7 +942,7 @@ FIG3C
 #   ylab('Number of significantly enriched OTUs vs Control') + 
 #   xlab('')
 
-
+### BASE MEAN
 tocontf %>% 
   filter(log2FoldChange > 0) %>%
   mutate(Order=fct_infreq(Order),
@@ -957,7 +958,7 @@ tocontf %>%
         # legend.background = element_rect(colour="grey", fill="grey", size=3),
         legend.position=c(.39,.75)
   )+
-  ylab('Number of significantly enriched OTUs vs Control') + 
+  ylab('Basal abundance of significantly enriched OTUs vs Control') + 
   xlab('')
 
 
