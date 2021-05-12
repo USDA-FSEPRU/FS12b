@@ -667,16 +667,21 @@ plt_net <-
            NODES, EDGES, 
            highlight_these_nodes,
            LAYOUT='kamadakawai', 
-           layout.par=list(NULL)){
+           layout.par=list(NULL), 
+           SEED=2){
     # NET needs to be a fortified edgelist
   # wrap this
   # plot network
+    # browser()
+    set.seed(SEED)
   all_melt <- 
     phyloseq_obj %>% 
     rarefy_even_depth() %>% 
     psmelt()
   
-  taxtab <- as(tax_table(phyloseq_obj), 'matrix') %>% data.frame() %>% rownames_to_column(var = 'OTU')
+  taxtab <- as(tax_table(phyloseq_obj), 'matrix') %>%
+    data.frame() %>%
+    rownames_to_column(var = 'OTU')
   
   all_agg_abund_info <- 
     all_melt %>%
@@ -688,9 +693,13 @@ plt_net <-
     ungroup() %>% 
     left_join(taxtab)
   
+  # removes edges and nodes relating to OTUs not in the abund info dfs
+  EDGES <- EDGES[EDGES$from %in% all_agg_abund_info$OTU,]
+  NODES <- NODES[grepl('creased', NODES$V_ID) | NODES$V_ID %in% all_agg_abund_info$OTU,]
+  
  NET <-  fortify(as.edgedf(EDGES), NODES)
   ### geomnet
-  set.seed(2)
+  
   
   gg <- ggplot(data = NET, aes(from_id = from_id, to_id = to_id)) +
     geom_net(colour = "darkred", labelon=TRUE, size = 5,layout.alg = LAYOUT, layout.par=layout.par,
@@ -739,8 +748,9 @@ plt_net <-
     filter(OTU %in%ONODES$OTU) %>% 
     select(OTU, perc_comm) %>% 
     right_join(ONODES) %>% 
+    # filter(!is.na(perc_comm)) %>% 
     mutate(Class=fct_reorder(Class, perc_comm, .fun = sum, .desc = TRUE)) %>% 
-    mutate(Class=fct_lump_n(Class, 9, w=perc_comm))
+    mutate(Class=fct_lump_n(Class, 8, w=perc_comm))
   
   ### MERGE IN TREATMENT ENRICHMENT HERE
   # ONODES %>% dplyr::count(OTU) %>% filter(n!=1)
@@ -783,52 +793,200 @@ plt_net <-
 
 
 
-BN <- build_net(phyloseq_obj = FS12b_RPS,
+#### All treatments together ##
+
+full_net <- build_net(phyloseq_obj = FS12b,
+                          EDGE_QVAL = 0.05, 
+                          EDGE_LFC = .5, 
+                          SEED = 2,
+                          highlight_these_otus = RPS_enriched_OTUs)
+
+
+
+
+### FILTER SMALL UNCONNECTED COMMUNITIES
+
+g <- igraph::graph_from_data_frame(vertices = full_net[[3]], d=full_net[[2]], directed = F)
+set.seed(2)
+clouv <- cluster_louvain(g)
+
+CONNECTED <- membership(clusters(g))
+
+
+keep_these_nodes <- names(CONNECTED[CONNECTED %in% c(1, 2)])
+
+
+
+filt_net <- 
+  full_net[[1]] %>% 
+  filter(from_id %in% keep_these_nodes) %>% 
+  filter(to_id %in% keep_these_nodes)
+
+filt_nodes <- 
+  full_net[[3]] %>% filter(V_ID %in% keep_these_nodes)
+
+filt_edges <- full_net[[2]] %>%
+  filter(from %in% keep_these_nodes) %>%
+  filter(to %in% keep_these_nodes)
+
+
+##
+
+
+full_net_fig7 <- 
+  plt_net(phyloseq_obj = FS12b,
+          NODES = filt_nodes, 
+          EDGES = filt_edges, 
+          highlight_these_nodes = RPS_enriched_OTUs,
+          LAYOUT ='kamadakawai', layout.par = list(niter=10000))
+full_net_fig7
+
+
+ggsave('./output/full_net_fig7.jpeg', width = 9, height = 7, units = 'in')
+
+
+
+
+
+### connections in just RPS treatment #
+
+
+
+RPS_full_net <- build_net(phyloseq_obj = FS12b_RPS,
                 EDGE_QVAL = 0.05, 
                 EDGE_LFC = .5, 
                 SEED = 2,
                 highlight_these_otus = RPS_enriched_OTUs)
 
 
+### FILTER THE SMALL ONES FROM THIS ###
+# RPS_full_net_supp_fig <- plt_net(phyloseq_obj = FS12b,
+#                              NODES = RPS_full_net[[3]],
+#                              EDGES = RPS_full_net[[2]], 
+#                              highlight_these_nodes = RPS_enriched_OTUs,
+#                              LAYOUT ='kamadakawai', 
+#                              layout.par = list(niter=10000))
 
 library(igraph)
 
 
-g <- igraph::graph_from_data_frame(vertices = BN[[3]], d=BN[[2]], directed = F)
+g <- igraph::graph_from_data_frame(vertices = RPS_full_net[[3]], d=RPS_full_net[[2]], directed = F)
+set.seed(2)
 clouv <- cluster_louvain(g)
-membership(clouv)
 
+CONNECTED <- membership(clusters(g))
+
+
+keep_these_nodes <- names(CONNECTED[CONNECTED == 1])
+
+
+
+filt_net <- 
+  RPS_full_net[[1]] %>% 
+  filter(from_id %in% keep_these_nodes) %>% 
+  filter(to_id %in% keep_these_nodes)
+
+filt_nodes <- 
+  RPS_full_net[[3]] %>% filter(V_ID %in% keep_these_nodes)
+
+filt_edges <- RPS_full_net[[2]] %>%
+  filter(from %in% keep_these_nodes) %>%
+  filter(to %in% keep_these_nodes)
+
+RPS_full_net_supp_fig <- 
+  plt_net(phyloseq_obj = FS12b_RPS,
+          NODES = filt_nodes, 
+          EDGES = filt_edges, 
+          highlight_these_nodes = RPS_enriched_OTUs,
+          LAYOUT ='kamadakawai', layout.par = list(niter=10000))
+RPS_full_net_supp_fig
+
+
+ggsave('./output/RPS_full_net_supp_fig.jpeg', width = 9, height = 7, units = 'in')
+
+
+
+#####
+# for fig 8
+mem <- membership(clouv)
+
+plot(clouv, g)
+
+hist(degree(g))
+
+DEGREE <- degree(g)
+
+
+
+hist(DEGREE[grepl('Otu', names(DEGREE))])
+otu_degrees <- DEGREE[grepl('Otu', names(DEGREE))]
+
+
+
+
+central_OTUs <- otu_degrees[otu_degrees > 3] %>% sort(decreasing = T)
+RPS_tax_table <- FS12b_RPS@tax_table %>%
+  as.data.frame() %>%
+  rownames_to_column(var='OTU')
+
+tibble(OTU=names(central_OTUs), 
+       DEGREE=central_OTUs) %>% 
+  left_join(RPS_tax_table)
+
+
+
+
+keeps <- names(mem) %in% c('increased_butyrate',
+                  'increased_valerate',
+                  'increased_caproate',
+                  'decreased_log_sal', 
+                  'increased_succinate', 
+                  'decreased_AULC')
+
+mem[keeps] %>% unique()
 
 # 5, 7, 1
 
 keepers <- membership(clouv)[(membership(clouv) %in% c(1,5,7))] %>% names()
 
 filt_net <- 
-  BN[[1]] %>% 
+  RPS_full_net[[1]] %>% 
   filter(from_id %in% keepers) %>% 
   filter(to_id %in% keepers)
 
 filt_nodes <- 
-  BN[[3]] %>% filter(V_ID %in% keepers)
+  RPS_full_net[[3]] %>% filter(V_ID %in% keepers)
 
-filt_edges <- BN[[2]] %>%
+filt_edges <- RPS_full_net[[2]] %>%
   filter(from %in% keepers) %>%
   filter(to %in% keepers)
 
-tstK <- plt_net(phyloseq_obj = FS12b,
+fig8 <- plt_net(phyloseq_obj = FS12b_RPS,
                NODES = filt_nodes, 
                EDGES = filt_edges, 
                highlight_these_nodes = RPS_enriched_OTUs,
                LAYOUT ='kamadakawai', layout.par = list(niter=10000))
-tstK
+fig8
 
 
-
-tstF <- plt_net(phyloseq_obj = FS12b,
-               NODES = filt_nodes, 
-               EDGES = filt_edges, 
-               highlight_these_nodes = RPS_enriched_OTUs,
-               LAYOUT ='fruchtermanreingold', layout.par = list(niter=10000))
-
-tstF
+ggsave('./output/figure8.jpeg', width = 9, height = 7, units = 'in')
+# 
+# plt_net(phyloseq_obj = FS12b_RPS,
+#         NODES = BN[[3]],
+#         EDGES = BN[[2]], 
+#         highlight_these_nodes = RPS_enriched_OTUs,
+#         LAYOUT = 'kamadakawai',
+#         layout.par = list(niter=10000))
+# 
+# 
+# 
+# 
+# 
+# tstF <- plt_net(phyloseq_obj = FS12b,
+#                NODES = filt_nodes, 
+#                EDGES = filt_edges, 
+#                highlight_these_nodes = RPS_enriched_OTUs,
+#                LAYOUT ='fruchtermanreingold', layout.par = list(niter=10000))
+# 
+# tstF
 
