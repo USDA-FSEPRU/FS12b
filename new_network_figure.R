@@ -1,4 +1,3 @@
-
 library(tidyverse)
 library(phyloseq)
 library(vegan)
@@ -8,7 +7,7 @@ library(DESeq2)
 library(cowplot)
 library(geomnet)
 library(ggrepel)
-
+library(igraph)
 
 DESeq_cov_asso <- 
   function(phyloseq_obj,
@@ -140,425 +139,6 @@ MET <- read_tsv('./data/FS12b_meta.tsv') %>%
 
 FS12b <- phyloseq(MET, TAX, OTU)
 
-
-# split into two functions, one that outputs the network edges/ network object
-# one that plots the network?
-
-test_fun <- 
-  function(phyloseq_obj, EDGE_QVAL, EDGE_LFC, SEED, highlight_these_otus){
-    # browser()
-    
-    set.seed(SEED)
-  FS12b <- phyloseq_obj
-  all_melt <- 
-    FS12b %>% 
-    rarefy_even_depth() %>% 
-    psmelt()
-  
-  taxtab <- as(tax_table(FS12b), 'matrix') %>% data.frame() %>% rownames_to_column(var = 'OTU')
-  
-  all_agg_abund_info <- 
-    all_melt %>%
-    group_by(OTU) %>% 
-    summarise(mean_abund=mean(Abundance)) %>% 
-    mutate(tot_abund=sum(mean_abund), 
-           prop_comm=mean_abund/tot_abund, 
-           perc_comm=prop_comm * 100) %>% 
-    ungroup() %>% 
-    left_join(taxtab)
-  
-  
-  # all_agg_abund_info %>% dplyr::count(OTU) %>% filter(n !=1)
-  
-  
-  # padj after all calcs?
-  
-  sal_OTU_assoc_treat <- 
-    list(
-      DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D2', tissue = 'F', covariate = 'log_sal', treatment = T)[[2]],
-      DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D7', tissue = 'F', covariate = 'log_sal', treatment = T)[[2]],
-      DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D14', tissue = 'F', covariate = 'log_sal', treatment = T)[[2]],
-      DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'F', covariate = 'log_sal', treatment = T)[[2]], 
-      DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'log_sal', treatment = T)[[2]], 
-      DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'X', covariate = 'log_sal', treatment = T)[[2]], 
-      DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D0', tissue = 'F', covariate = 'AULC', treatment = T)[[2]], 
-      DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D2', tissue = 'F', covariate = 'AULC', treatment = T)[[2]], 
-      DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D7', tissue = 'F', covariate = 'AULC', treatment = T)[[2]], 
-      DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D14', tissue = 'F', covariate = 'AULC', treatment = T)[[2]], 
-      DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'F', covariate = 'AULC', treatment = T)[[2]]
-    ) %>% 
-    bind_rows() %>%
-    # filter(padj < 0.05 & abs(log2FoldChange) >.5) %>%
-    # filter(padj < 0.05 ) %>% 
-    mutate(node_name=paste(day, tissue, direction, covariate,sep = '_'))
-  
-  # sal_OTU_assoc_treat %>% filter(covariate == 'AULC') %>% 
-  #   ggplot(aes(x=log2FoldChange)) + geom_histogram()
-  # 
-  # FS12b@sam_data$AULC
-  
-  
-  
-  
-  
-  
-  SCFA_OTU_assoc_treat <- 
-    list(
-      DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'butyrate', treatment = T)[[2]],
-      DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'caproate', treatment = T)[[2]],
-      DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'valerate', treatment = T)[[2]],
-      DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'succinate', treatment = T)[[2]], 
-      DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'lactate', treatment = T)[[2]], 
-      DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'acetate', treatment = T)[[2]], 
-      DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'propionate', treatment = T)[[2]], 
-      DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'isobutyrate', treatment = T)[[2]],
-      DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'isovalerate', treatment = T)[[2]],
-      DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'phenylacetate', treatment = T)[[2]],
-      DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'oxalate', treatment = T)[[2]]
-    ) %>% 
-    bind_rows() %>%
-    # filter(padj < 0.05 & abs(log2FoldChange) >.5) %>%
-    mutate(node_name=paste(day, tissue, direction, covariate,sep = '_'))
-    # 
-  # bind_rows(SCFA_OTU_assoc_treat, sal_OTU_assoc_treat) %>%
-  #   mutate(BH_all_P = p.adjust(pvalue, method = 'fdr')) %>%
-  #   filter(abs(log2FoldChange) > .5) %>%
-  #   ggplot(aes(x=BH_all_P, y=pvalue)) + geom_point()
-  # 
-  
-  
-  # # FDR on all tests for both scfa and sal
-  edges <- bind_rows(SCFA_OTU_assoc_treat, sal_OTU_assoc_treat) %>% 
-    mutate(BH_all_P = p.adjust(pvalue, method = 'fdr')) %>%   
-    filter(BH_all_P < EDGE_QVAL) %>%
-    filter(abs(log2FoldChange) > EDGE_LFC) %>%
-    transmute(from=as.character(OTU), 
-              to=sub('D[0-9]+_[A-Z]_','',node_name), 
-              weight=abs(log2FoldChange))
-  
-  
-  
-  
-  nodes <- tibble(
-    V_ID=unique(c(edges$from, edges$to)), 
-    type=case_when(
-      grepl('Otu', V_ID) ~ 'OTU',
-      grepl('ate$', V_ID) ~ 'SCFA',
-      grepl('log_sal|AULC', V_ID) ~ 'Salmonella',
-      TRUE ~ 'ERR'
-    )
-  )
-  
-  
-  nodes[nodes$type == 'ERR',]
-  
-  NET <- fortify(as.edgedf(edges), nodes)
-  
-  ### geomnet
-  set.seed(2)
-  
-  gg <- ggplot(data = NET, aes(from_id = from_id, to_id = to_id)) +
-    geom_net(colour = "darkred", labelon=TRUE, size = 5,layout.alg = 'fruchtermanreingold', 
-             directed = FALSE, vjust = 0.5,fontsize=2, labelcolour = "black",
-             ecolour = "grey40") +
-    theme_net()
-  
-  gg
-  
-  graph_layout <- 
-    gg %>% ggplot_build()
-  
-  
-  
-  GRAPH_EDGES <- graph_layout$data[[1]] %>%  select(from , to, x, y, xend, yend)
-  
-  gn1TMP <- 
-    GRAPH_EDGES %>% 
-    select(from, x, y) %>%
-    unique()
-  
-  gn2TMP <- 
-    GRAPH_EDGES %>% 
-    select(to, xend, yend) %>%
-    unique() %>%
-    transmute(from=to, x=xend, y=yend)
-  
-  NODE_DATA <- bind_rows(gn1TMP, gn2TMP) %>% unique()
-  SCFA_NODES <- NODE_DATA %>% filter(!grepl('Otu', from)) # should be 'other_nodes'
-  
-  
-  ONODES <- 
-    NODE_DATA %>%
-    filter(grepl('Otu', from)) %>% 
-    transmute(OTU=from, x=x, y=y) %>% 
-    left_join(taxtab)
-  
-  unique(ONODES$Family)
-  
-  # NOW BRING IN ABUND DATA  
-  # modify this to be aggregate over all treatments
-  
-  ONODES <- 
-    all_agg_abund_info %>% 
-    # filter(treatment == 'RPS') %>% 
-    filter(OTU %in%ONODES$OTU) %>% 
-    select(OTU, perc_comm) %>% 
-    right_join(ONODES) %>% 
-    mutate(Class=fct_reorder(Class, perc_comm, .fun = sum, .desc = TRUE)) %>% 
-    mutate(Class=fct_lump_n(Class, 9, w=perc_comm))
-  
-  ### MERGE IN TREATMENT ENRICHMENT HERE
-  # ONODES %>% dplyr::count(OTU) %>% filter(n!=1)
-  
-  # unique(ONODES$Family)
-  
-  
-  
-  RPS_enrich_OTUs <- 
-    tibble(OTU=highlight_these_otus, 
-           enrich='RPS') %>%
-    right_join(ONODES) %>% 
-    filter(enrich == 'RPS')
-  
-  
-  
-  FIG_S7 <- 
-    ONODES %>%
-    ggplot(aes(x=x, y=y)) + 
-    geom_point(data=RPS_enrich_OTUs, aes(x=x, y=y), color='blue', size=10, alpha=.5)+
-    geom_segment(data=GRAPH_EDGES, aes(x=x, y=y, xend=xend, yend=yend), color='grey') + 
-    geom_point(shape=21, aes(size=perc_comm, fill=Class)) + 
-    scale_fill_brewer(palette = 'Set1') + 
-    # geom_text(aes(label=Genus), size=3, nudge_y = .02) + 
-    geom_point(data = SCFA_NODES, aes(x=x, y=y), size=3, shape=22, fill='black') + 
-    geom_label(data = SCFA_NODES, aes(x=x, y=y, label=from), size=2,color='white', fill='black')  + 
-    # theme_net() +
-    geom_text_repel(aes(label=Genus),size=2, max.overlaps = 100000)+
-    theme(legend.position = 'bottom') + 
-    theme(axis.title = element_blank(), 
-          axis.text = element_blank(), 
-          axis.ticks = element_blank(), 
-          panel.background = element_blank(), 
-          panel.grid = element_blank())
-  
-  
-  return(FIG_S7)
-  
-}
-
-FS12b_RPS <- FS12b %>% prune_samples(samples=FS12b@sam_data$treatment == 'RPS')
-
-
-all_treats <- test_fun(phyloseq_obj = FS12b, 
-                       EDGE_QVAL = .05,
-                       EDGE_LFC = .5,
-                       SEED = 2,
-                       highlight_these_otus = RPS_enriched_OTUs)
-
-
-just_RPS <- test_fun(phyloseq_obj = FS12b_RPS, 
-                     EDGE_QVAL = .05,
-                     EDGE_LFC = .5, 
-                     SEED = 2, 
-                     highlight_these_otus = RPS_enriched_OTUs)
-
-# all_melt <- 
-#   FS12b %>% 
-#   rarefy_even_depth() %>% 
-#   psmelt()
-# 
-# taxtab <- as(tax_table(FS12b), 'matrix') %>% data.frame() %>% rownames_to_column(var = 'OTU')
-# 
-# all_agg_abund_info <- 
-#   all_melt %>%
-#   group_by(OTU) %>% 
-#   summarise(mean_abund=mean(Abundance)) %>% 
-#   mutate(tot_abund=sum(mean_abund), 
-#          prop_comm=mean_abund/tot_abund, 
-#          perc_comm=prop_comm * 100) %>% 
-#   ungroup() %>% 
-#   left_join(taxtab)
-# 
-# 
-# all_agg_abund_info %>% dplyr::count(OTU) %>% filter(n !=1)
-# 
-# 
-# # padj after all calcs?
-# 
-# sal_OTU_assoc_treat <- 
-#   list(
-#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D2', tissue = 'F', covariate = 'log_sal', treatment = T)[[2]],
-#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D7', tissue = 'F', covariate = 'log_sal', treatment = T)[[2]],
-#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D14', tissue = 'F', covariate = 'log_sal', treatment = T)[[2]],
-#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'F', covariate = 'log_sal', treatment = T)[[2]], 
-#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'log_sal', treatment = T)[[2]], 
-#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'X', covariate = 'log_sal', treatment = T)[[2]], 
-#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D0', tissue = 'F', covariate = 'AULC', treatment = T)[[2]], 
-#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D2', tissue = 'F', covariate = 'AULC', treatment = T)[[2]], 
-#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D7', tissue = 'F', covariate = 'AULC', treatment = T)[[2]], 
-#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D14', tissue = 'F', covariate = 'AULC', treatment = T)[[2]], 
-#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'F', covariate = 'AULC', treatment = T)[[2]]
-#     ) %>% 
-#   bind_rows() %>%
-#   # filter(padj < 0.05 & abs(log2FoldChange) >.5) %>%
-#   # filter(padj < 0.05 ) %>% 
-#   mutate(node_name=paste(day, tissue, direction, covariate,sep = '_'))
-# 
-# sal_OTU_assoc_treat %>% filter(covariate == 'AULC') %>% 
-#   ggplot(aes(x=log2FoldChange)) + geom_histogram()
-# 
-# FS12b@sam_data$AULC
-# 
-# 
-# 
-# 
-# 
-# 
-# SCFA_OTU_assoc_treat <- 
-#   list(
-#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'butyrate', treatment = T)[[2]],
-#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'caproate', treatment = T)[[2]],
-#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'valerate', treatment = T)[[2]],
-#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'succinate', treatment = T)[[2]], 
-#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'lactate', treatment = T)[[2]], 
-#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'acetate', treatment = T)[[2]], 
-#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'propionate', treatment = T)[[2]], 
-#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'isobutyrate', treatment = T)[[2]],
-#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'isovalerate', treatment = T)[[2]],
-#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'phenylacetate', treatment = T)[[2]],
-#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'oxalate', treatment = T)[[2]]
-#   ) %>% 
-#   bind_rows() %>%
-#   # filter(padj < 0.05 & abs(log2FoldChange) >.5) %>%
-#   mutate(node_name=paste(day, tissue, direction, covariate,sep = '_'))
-# 
-# bind_rows(SCFA_OTU_assoc_treat, sal_OTU_assoc_treat) %>%
-#   mutate(BH_all_P = p.adjust(pvalue, method = 'fdr')) %>% 
-#   filter(abs(log2FoldChange) > .5) %>% 
-#   ggplot(aes(x=BH_all_P, y=pvalue)) + geom_point()
-# 
-# 
-# #non OTU correlations 
-# 
-# 
-# 
-# FS12b@sam_data %>% as_tibble() %>% 
-#   select(pignum, AULC, log_sal,day, tissue, treatment) %>%
-#   filter(pignum == 181)
-# 
-# 
-# 
-# 
-# edges <- bind_rows(SCFA_OTU_assoc_treat, sal_OTU_assoc_treat) %>% 
-#   mutate(BH_all_P = p.adjust(pvalue, method = 'fdr')) %>%   # FDR on all tests for both scfa and sal
-#   filter(BH_all_P < 0.05) %>% 
-#   filter(abs(log2FoldChange) > .5) %>% 
-#   transmute(from=as.character(OTU), 
-#             to=sub('D[0-9]+_[A-Z]_','',node_name), 
-#             weight=abs(log2FoldChange))
-# 
-# 
-# 
-# 
-# nodes <- tibble(
-#   V_ID=unique(c(edges$from, edges$to)), 
-#   type=case_when(
-#     grepl('Otu', V_ID) ~ 'OTU',
-#     grepl('ate$', V_ID) ~ 'SCFA',
-#     grepl('log_sal|AULC', V_ID) ~ 'Salmonella',
-#     TRUE ~ 'ERR'
-#   )
-# )
-# 
-# 
-# nodes[nodes$type == 'ERR',]
-# 
-# NET <- fortify(as.edgedf(edges), nodes)
-# 
-# ### geomnet
-# set.seed(2)
-# 
-# gg <- ggplot(data = NET, aes(from_id = from_id, to_id = to_id)) +
-#   geom_net(colour = "darkred", labelon=TRUE, size = 5,layout.alg = 'fruchtermanreingold', 
-#            directed = FALSE, vjust = 0.5,fontsize=2, labelcolour = "black",
-#            ecolour = "grey40") +
-#   theme_net()
-# 
-# gg
-# 
-# graph_layout <- 
-#   gg %>% ggplot_build()
-# 
-# 
-# 
-# GRAPH_EDGES <- graph_layout$data[[1]] %>%  select(from , to, x, y, xend, yend)
-# 
-# gn1TMP <- 
-#   GRAPH_EDGES %>% 
-#   select(from, x, y) %>%
-#   unique()
-# 
-# gn2TMP <- 
-#   GRAPH_EDGES %>% 
-#   select(to, xend, yend) %>%
-#   unique() %>%
-#   transmute(from=to, x=xend, y=yend)
-# 
-# NODE_DATA <- bind_rows(gn1TMP, gn2TMP) %>% unique()
-# SCFA_NODES <- NODE_DATA %>% filter(!grepl('Otu', from)) # should be 'other_nodes'
-# 
-# 
-# ONODES <- 
-#   NODE_DATA %>%
-#   filter(grepl('Otu', from)) %>% 
-#   transmute(OTU=from, x=x, y=y) %>% 
-#   left_join(taxtab)
-# 
-# unique(ONODES$Family)
-# 
-# # NOW BRING IN ABUND DATA  
-# # modify this to be aggregate over all treatments
-# 
-# ONODES <- 
-#   all_agg_abund_info %>% 
-#   # filter(treatment == 'RPS') %>% 
-#   filter(OTU %in%ONODES$OTU) %>% 
-#   select(OTU, perc_comm) %>% 
-#   right_join(ONODES) %>% 
-#   mutate(Class=fct_reorder(Class, perc_comm, .fun = sum, .desc = TRUE))
-# 
-# ### MERGE IN TREATMENT ENRICHMENT HERE
-# ONODES %>% dplyr::count(OTU) %>% filter(n!=1)
-# 
-# unique(ONODES$Family)
-# 
-# 
-# 
-# RPS_enrich_OTUs <- 
-#   tibble(OTU=RPS_sigOTUs, 
-#          enrich='RPS') %>% right_join(ONODES) %>% 
-#   filter(enrich == 'RPS')
-# 
-# 
-# library(ggrepel)
-# 
-# FIG_S7 <- 
-#   ONODES %>%
-#   ggplot(aes(x=x, y=y)) + 
-#   geom_point(data=RPS_enrich_OTUs, aes(x=x, y=y), color='blue', size=10, alpha=.5)+
-#   geom_segment(data=GRAPH_EDGES, aes(x=x, y=y, xend=xend, yend=yend), color='grey') + 
-#   geom_point(shape=21, aes(size=perc_comm, fill=Class)) + 
-#   scale_fill_brewer(palette = 'Set1') + 
-#   # geom_text(aes(label=Genus), size=3, nudge_y = .02) + 
-#   geom_point(data = SCFA_NODES, aes(x=x, y=y), size=3, shape=22, fill='black') + 
-#   geom_label(data = SCFA_NODES, aes(x=x, y=y, label=from), size=2,color='white', fill='black')  + 
-#   # theme_net() + 
-#   geom_text_repel(aes(label=Genus),size=2, max.overlaps = 100000)+
-#   theme(legend.position = 'bottom')
-# 
-# 
-# FIG_S7
-# 
 
 
 
@@ -804,7 +384,9 @@ full_net <- build_net(phyloseq_obj = FS12b,
 
 
 
-### FILTER SMALL UNCONNECTED COMMUNITIES
+### FILTER 
+# REMOVE SMALL UNCONNECTED COMMUNITIES
+# FOCUS ON INCREASED SCFAS and DECREASED SAL
 
 g <- igraph::graph_from_data_frame(vertices = full_net[[3]], d=full_net[[2]], directed = F)
 set.seed(2)
@@ -812,6 +394,42 @@ clouv <- cluster_louvain(g)
 
 CONNECTED <- membership(clusters(g))
 
+
+keep_these_nodes <- names(CONNECTED[CONNECTED %in% c( 2)])
+
+
+
+filt_net <- 
+  full_net[[1]] %>% 
+  filter(from_id %in% keep_these_nodes) %>% 
+  filter(to_id %in% keep_these_nodes)
+
+filt_nodes <- 
+  full_net[[3]] %>% filter(V_ID %in% keep_these_nodes)
+
+filt_edges <- full_net[[2]] %>%
+  filter(from %in% keep_these_nodes) %>%
+  filter(to %in% keep_these_nodes)
+
+
+##
+
+
+
+full_net_fig7 <- 
+  plt_net(phyloseq_obj = FS12b,
+          NODES = filt_nodes, 
+          EDGES = filt_edges, 
+          highlight_these_nodes = RPS_enriched_OTUs,
+          LAYOUT ='kamadakawai', layout.par = list(niter=10000))
+full_net_fig7
+
+
+ggsave('./output/Figure7_all_data_net.jpeg', width = 9, height = 7, units = 'in')
+
+####
+
+### FULL NET SUPP FIG 3
 
 keep_these_nodes <- names(CONNECTED[CONNECTED %in% c(1, 2)])
 
@@ -833,24 +451,23 @@ filt_edges <- full_net[[2]] %>%
 ##
 
 
-full_net_fig7 <- 
+full_net_suppfig <- 
   plt_net(phyloseq_obj = FS12b,
           NODES = filt_nodes, 
           EDGES = filt_edges, 
           highlight_these_nodes = RPS_enriched_OTUs,
           LAYOUT ='kamadakawai', layout.par = list(niter=10000))
-full_net_fig7
+full_net_suppfig
 
 
-ggsave('./output/full_net_fig7.jpeg', width = 9, height = 7, units = 'in')
-
+ggsave('./output/figureS3_all_data_fullnet.jpeg', width = 9, height = 7, units = 'in')
 
 
 
 
 ### connections in just RPS treatment #
 
-
+FS12b_RPS <- FS12b %>% prune_samples(samples=FS12b@sam_data$treatment == 'RPS')
 
 RPS_full_net <- build_net(phyloseq_obj = FS12b_RPS,
                 EDGE_QVAL = 0.05, 
@@ -866,8 +483,6 @@ RPS_full_net <- build_net(phyloseq_obj = FS12b_RPS,
 #                              highlight_these_nodes = RPS_enriched_OTUs,
 #                              LAYOUT ='kamadakawai', 
 #                              layout.par = list(niter=10000))
-
-library(igraph)
 
 
 g <- igraph::graph_from_data_frame(vertices = RPS_full_net[[3]], d=RPS_full_net[[2]], directed = F)
@@ -902,7 +517,7 @@ RPS_full_net_supp_fig <-
 RPS_full_net_supp_fig
 
 
-ggsave('./output/RPS_full_net_supp_fig.jpeg', width = 9, height = 7, units = 'in')
+ggsave('./output/FigureS4_RPS_full_net.jpeg', width = 9, height = 7, units = 'in')
 
 
 
@@ -931,7 +546,8 @@ RPS_tax_table <- FS12b_RPS@tax_table %>%
 
 tibble(OTU=names(central_OTUs), 
        DEGREE=central_OTUs) %>% 
-  left_join(RPS_tax_table)
+  left_join(RPS_tax_table) %>% 
+  write_tsv('./output/RPS_Net_Central_OTUs.tsv')
 
 
 
@@ -989,4 +605,428 @@ ggsave('./output/figure8.jpeg', width = 9, height = 7, units = 'in')
 #                LAYOUT ='fruchtermanreingold', layout.par = list(niter=10000))
 # 
 # tstF
+
+
+
+#### OLDZONE LAYER ####
+
+
+# split into two functions, one that outputs the network edges/ network object
+# one that plots the network?
+# 
+# test_fun <- 
+#   function(phyloseq_obj, EDGE_QVAL, EDGE_LFC, SEED, highlight_these_otus){
+#     # browser()
+#     
+#     set.seed(SEED)
+#   FS12b <- phyloseq_obj
+#   all_melt <- 
+#     FS12b %>% 
+#     rarefy_even_depth() %>% 
+#     psmelt()
+#   
+#   taxtab <- as(tax_table(FS12b), 'matrix') %>% data.frame() %>% rownames_to_column(var = 'OTU')
+#   
+#   all_agg_abund_info <- 
+#     all_melt %>%
+#     group_by(OTU) %>% 
+#     summarise(mean_abund=mean(Abundance)) %>% 
+#     mutate(tot_abund=sum(mean_abund), 
+#            prop_comm=mean_abund/tot_abund, 
+#            perc_comm=prop_comm * 100) %>% 
+#     ungroup() %>% 
+#     left_join(taxtab)
+#   
+#   
+#   # all_agg_abund_info %>% dplyr::count(OTU) %>% filter(n !=1)
+#   
+#   
+#   # padj after all calcs?
+#   
+#   sal_OTU_assoc_treat <- 
+#     list(
+#       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D2', tissue = 'F', covariate = 'log_sal', treatment = T)[[2]],
+#       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D7', tissue = 'F', covariate = 'log_sal', treatment = T)[[2]],
+#       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D14', tissue = 'F', covariate = 'log_sal', treatment = T)[[2]],
+#       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'F', covariate = 'log_sal', treatment = T)[[2]], 
+#       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'log_sal', treatment = T)[[2]], 
+#       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'X', covariate = 'log_sal', treatment = T)[[2]], 
+#       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D0', tissue = 'F', covariate = 'AULC', treatment = T)[[2]], 
+#       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D2', tissue = 'F', covariate = 'AULC', treatment = T)[[2]], 
+#       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D7', tissue = 'F', covariate = 'AULC', treatment = T)[[2]], 
+#       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D14', tissue = 'F', covariate = 'AULC', treatment = T)[[2]], 
+#       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'F', covariate = 'AULC', treatment = T)[[2]]
+#     ) %>% 
+#     bind_rows() %>%
+#     # filter(padj < 0.05 & abs(log2FoldChange) >.5) %>%
+#     # filter(padj < 0.05 ) %>% 
+#     mutate(node_name=paste(day, tissue, direction, covariate,sep = '_'))
+#   
+#   # sal_OTU_assoc_treat %>% filter(covariate == 'AULC') %>% 
+#   #   ggplot(aes(x=log2FoldChange)) + geom_histogram()
+#   # 
+#   # FS12b@sam_data$AULC
+#   
+#   
+#   
+#   
+#   
+#   
+#   SCFA_OTU_assoc_treat <- 
+#     list(
+#       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'butyrate', treatment = T)[[2]],
+#       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'caproate', treatment = T)[[2]],
+#       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'valerate', treatment = T)[[2]],
+#       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'succinate', treatment = T)[[2]], 
+#       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'lactate', treatment = T)[[2]], 
+#       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'acetate', treatment = T)[[2]], 
+#       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'propionate', treatment = T)[[2]], 
+#       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'isobutyrate', treatment = T)[[2]],
+#       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'isovalerate', treatment = T)[[2]],
+#       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'phenylacetate', treatment = T)[[2]],
+#       DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'oxalate', treatment = T)[[2]]
+#     ) %>% 
+#     bind_rows() %>%
+#     # filter(padj < 0.05 & abs(log2FoldChange) >.5) %>%
+#     mutate(node_name=paste(day, tissue, direction, covariate,sep = '_'))
+#     # 
+#   # bind_rows(SCFA_OTU_assoc_treat, sal_OTU_assoc_treat) %>%
+#   #   mutate(BH_all_P = p.adjust(pvalue, method = 'fdr')) %>%
+#   #   filter(abs(log2FoldChange) > .5) %>%
+#   #   ggplot(aes(x=BH_all_P, y=pvalue)) + geom_point()
+#   # 
+#   
+#   
+#   # # FDR on all tests for both scfa and sal
+#   edges <- bind_rows(SCFA_OTU_assoc_treat, sal_OTU_assoc_treat) %>% 
+#     mutate(BH_all_P = p.adjust(pvalue, method = 'fdr')) %>%   
+#     filter(BH_all_P < EDGE_QVAL) %>%
+#     filter(abs(log2FoldChange) > EDGE_LFC) %>%
+#     transmute(from=as.character(OTU), 
+#               to=sub('D[0-9]+_[A-Z]_','',node_name), 
+#               weight=abs(log2FoldChange))
+#   
+#   
+#   
+#   
+#   nodes <- tibble(
+#     V_ID=unique(c(edges$from, edges$to)), 
+#     type=case_when(
+#       grepl('Otu', V_ID) ~ 'OTU',
+#       grepl('ate$', V_ID) ~ 'SCFA',
+#       grepl('log_sal|AULC', V_ID) ~ 'Salmonella',
+#       TRUE ~ 'ERR'
+#     )
+#   )
+#   
+#   
+#   nodes[nodes$type == 'ERR',]
+#   
+#   NET <- fortify(as.edgedf(edges), nodes)
+#   
+#   ### geomnet
+#   set.seed(2)
+#   
+#   gg <- ggplot(data = NET, aes(from_id = from_id, to_id = to_id)) +
+#     geom_net(colour = "darkred", labelon=TRUE, size = 5,layout.alg = 'fruchtermanreingold', 
+#              directed = FALSE, vjust = 0.5,fontsize=2, labelcolour = "black",
+#              ecolour = "grey40") +
+#     theme_net()
+#   
+#   gg
+#   
+#   graph_layout <- 
+#     gg %>% ggplot_build()
+#   
+#   
+#   
+#   GRAPH_EDGES <- graph_layout$data[[1]] %>%  select(from , to, x, y, xend, yend)
+#   
+#   gn1TMP <- 
+#     GRAPH_EDGES %>% 
+#     select(from, x, y) %>%
+#     unique()
+#   
+#   gn2TMP <- 
+#     GRAPH_EDGES %>% 
+#     select(to, xend, yend) %>%
+#     unique() %>%
+#     transmute(from=to, x=xend, y=yend)
+#   
+#   NODE_DATA <- bind_rows(gn1TMP, gn2TMP) %>% unique()
+#   SCFA_NODES <- NODE_DATA %>% filter(!grepl('Otu', from)) # should be 'other_nodes'
+#   
+#   
+#   ONODES <- 
+#     NODE_DATA %>%
+#     filter(grepl('Otu', from)) %>% 
+#     transmute(OTU=from, x=x, y=y) %>% 
+#     left_join(taxtab)
+#   
+#   unique(ONODES$Family)
+#   
+#   # NOW BRING IN ABUND DATA  
+#   # modify this to be aggregate over all treatments
+#   
+#   ONODES <- 
+#     all_agg_abund_info %>% 
+#     # filter(treatment == 'RPS') %>% 
+#     filter(OTU %in%ONODES$OTU) %>% 
+#     select(OTU, perc_comm) %>% 
+#     right_join(ONODES) %>% 
+#     mutate(Class=fct_reorder(Class, perc_comm, .fun = sum, .desc = TRUE)) %>% 
+#     mutate(Class=fct_lump_n(Class, 9, w=perc_comm))
+#   
+#   ### MERGE IN TREATMENT ENRICHMENT HERE
+#   # ONODES %>% dplyr::count(OTU) %>% filter(n!=1)
+#   
+#   # unique(ONODES$Family)
+#   
+#   
+#   
+#   RPS_enrich_OTUs <- 
+#     tibble(OTU=highlight_these_otus, 
+#            enrich='RPS') %>%
+#     right_join(ONODES) %>% 
+#     filter(enrich == 'RPS')
+#   
+#   
+#   
+#   FIG_S7 <- 
+#     ONODES %>%
+#     ggplot(aes(x=x, y=y)) + 
+#     geom_point(data=RPS_enrich_OTUs, aes(x=x, y=y), color='blue', size=10, alpha=.5)+
+#     geom_segment(data=GRAPH_EDGES, aes(x=x, y=y, xend=xend, yend=yend), color='grey') + 
+#     geom_point(shape=21, aes(size=perc_comm, fill=Class)) + 
+#     scale_fill_brewer(palette = 'Set1') + 
+#     # geom_text(aes(label=Genus), size=3, nudge_y = .02) + 
+#     geom_point(data = SCFA_NODES, aes(x=x, y=y), size=3, shape=22, fill='black') + 
+#     geom_label(data = SCFA_NODES, aes(x=x, y=y, label=from), size=2,color='white', fill='black')  + 
+#     # theme_net() +
+#     geom_text_repel(aes(label=Genus),size=2, max.overlaps = 100000)+
+#     theme(legend.position = 'bottom') + 
+#     theme(axis.title = element_blank(), 
+#           axis.text = element_blank(), 
+#           axis.ticks = element_blank(), 
+#           panel.background = element_blank(), 
+#           panel.grid = element_blank())
+#   
+#   
+#   return(FIG_S7)
+#   
+# }
+# 
+
+# 
+# 
+# all_treats <- test_fun(phyloseq_obj = FS12b, 
+#                        EDGE_QVAL = .05,
+#                        EDGE_LFC = .5,
+#                        SEED = 2,
+#                        highlight_these_otus = RPS_enriched_OTUs)
+# 
+# 
+# just_RPS <- test_fun(phyloseq_obj = FS12b_RPS, 
+#                      EDGE_QVAL = .05,
+#                      EDGE_LFC = .5, 
+#                      SEED = 2, 
+#                      highlight_these_otus = RPS_enriched_OTUs)
+
+# all_melt <- 
+#   FS12b %>% 
+#   rarefy_even_depth() %>% 
+#   psmelt()
+# 
+# taxtab <- as(tax_table(FS12b), 'matrix') %>% data.frame() %>% rownames_to_column(var = 'OTU')
+# 
+# all_agg_abund_info <- 
+#   all_melt %>%
+#   group_by(OTU) %>% 
+#   summarise(mean_abund=mean(Abundance)) %>% 
+#   mutate(tot_abund=sum(mean_abund), 
+#          prop_comm=mean_abund/tot_abund, 
+#          perc_comm=prop_comm * 100) %>% 
+#   ungroup() %>% 
+#   left_join(taxtab)
+# 
+# 
+# all_agg_abund_info %>% dplyr::count(OTU) %>% filter(n !=1)
+# 
+# 
+# # padj after all calcs?
+# 
+# sal_OTU_assoc_treat <- 
+#   list(
+#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D2', tissue = 'F', covariate = 'log_sal', treatment = T)[[2]],
+#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D7', tissue = 'F', covariate = 'log_sal', treatment = T)[[2]],
+#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D14', tissue = 'F', covariate = 'log_sal', treatment = T)[[2]],
+#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'F', covariate = 'log_sal', treatment = T)[[2]], 
+#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'log_sal', treatment = T)[[2]], 
+#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'X', covariate = 'log_sal', treatment = T)[[2]], 
+#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D0', tissue = 'F', covariate = 'AULC', treatment = T)[[2]], 
+#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D2', tissue = 'F', covariate = 'AULC', treatment = T)[[2]], 
+#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D7', tissue = 'F', covariate = 'AULC', treatment = T)[[2]], 
+#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D14', tissue = 'F', covariate = 'AULC', treatment = T)[[2]], 
+#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'F', covariate = 'AULC', treatment = T)[[2]]
+#     ) %>% 
+#   bind_rows() %>%
+#   # filter(padj < 0.05 & abs(log2FoldChange) >.5) %>%
+#   # filter(padj < 0.05 ) %>% 
+#   mutate(node_name=paste(day, tissue, direction, covariate,sep = '_'))
+# 
+# sal_OTU_assoc_treat %>% filter(covariate == 'AULC') %>% 
+#   ggplot(aes(x=log2FoldChange)) + geom_histogram()
+# 
+# FS12b@sam_data$AULC
+# 
+# 
+# 
+# 
+# 
+# 
+# SCFA_OTU_assoc_treat <- 
+#   list(
+#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'butyrate', treatment = T)[[2]],
+#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'caproate', treatment = T)[[2]],
+#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'valerate', treatment = T)[[2]],
+#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'succinate', treatment = T)[[2]], 
+#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'lactate', treatment = T)[[2]], 
+#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'acetate', treatment = T)[[2]], 
+#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'propionate', treatment = T)[[2]], 
+#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'isobutyrate', treatment = T)[[2]],
+#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'isovalerate', treatment = T)[[2]],
+#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'phenylacetate', treatment = T)[[2]],
+#     DESeq_cov_asso(phyloseq_obj = FS12b, day = 'D21', tissue = 'C', covariate = 'oxalate', treatment = T)[[2]]
+#   ) %>% 
+#   bind_rows() %>%
+#   # filter(padj < 0.05 & abs(log2FoldChange) >.5) %>%
+#   mutate(node_name=paste(day, tissue, direction, covariate,sep = '_'))
+# 
+# bind_rows(SCFA_OTU_assoc_treat, sal_OTU_assoc_treat) %>%
+#   mutate(BH_all_P = p.adjust(pvalue, method = 'fdr')) %>% 
+#   filter(abs(log2FoldChange) > .5) %>% 
+#   ggplot(aes(x=BH_all_P, y=pvalue)) + geom_point()
+# 
+# 
+# #non OTU correlations 
+# 
+# 
+# 
+# FS12b@sam_data %>% as_tibble() %>% 
+#   select(pignum, AULC, log_sal,day, tissue, treatment) %>%
+#   filter(pignum == 181)
+# 
+# 
+# 
+# 
+# edges <- bind_rows(SCFA_OTU_assoc_treat, sal_OTU_assoc_treat) %>% 
+#   mutate(BH_all_P = p.adjust(pvalue, method = 'fdr')) %>%   # FDR on all tests for both scfa and sal
+#   filter(BH_all_P < 0.05) %>% 
+#   filter(abs(log2FoldChange) > .5) %>% 
+#   transmute(from=as.character(OTU), 
+#             to=sub('D[0-9]+_[A-Z]_','',node_name), 
+#             weight=abs(log2FoldChange))
+# 
+# 
+# 
+# 
+# nodes <- tibble(
+#   V_ID=unique(c(edges$from, edges$to)), 
+#   type=case_when(
+#     grepl('Otu', V_ID) ~ 'OTU',
+#     grepl('ate$', V_ID) ~ 'SCFA',
+#     grepl('log_sal|AULC', V_ID) ~ 'Salmonella',
+#     TRUE ~ 'ERR'
+#   )
+# )
+# 
+# 
+# nodes[nodes$type == 'ERR',]
+# 
+# NET <- fortify(as.edgedf(edges), nodes)
+# 
+# ### geomnet
+# set.seed(2)
+# 
+# gg <- ggplot(data = NET, aes(from_id = from_id, to_id = to_id)) +
+#   geom_net(colour = "darkred", labelon=TRUE, size = 5,layout.alg = 'fruchtermanreingold', 
+#            directed = FALSE, vjust = 0.5,fontsize=2, labelcolour = "black",
+#            ecolour = "grey40") +
+#   theme_net()
+# 
+# gg
+# 
+# graph_layout <- 
+#   gg %>% ggplot_build()
+# 
+# 
+# 
+# GRAPH_EDGES <- graph_layout$data[[1]] %>%  select(from , to, x, y, xend, yend)
+# 
+# gn1TMP <- 
+#   GRAPH_EDGES %>% 
+#   select(from, x, y) %>%
+#   unique()
+# 
+# gn2TMP <- 
+#   GRAPH_EDGES %>% 
+#   select(to, xend, yend) %>%
+#   unique() %>%
+#   transmute(from=to, x=xend, y=yend)
+# 
+# NODE_DATA <- bind_rows(gn1TMP, gn2TMP) %>% unique()
+# SCFA_NODES <- NODE_DATA %>% filter(!grepl('Otu', from)) # should be 'other_nodes'
+# 
+# 
+# ONODES <- 
+#   NODE_DATA %>%
+#   filter(grepl('Otu', from)) %>% 
+#   transmute(OTU=from, x=x, y=y) %>% 
+#   left_join(taxtab)
+# 
+# unique(ONODES$Family)
+# 
+# # NOW BRING IN ABUND DATA  
+# # modify this to be aggregate over all treatments
+# 
+# ONODES <- 
+#   all_agg_abund_info %>% 
+#   # filter(treatment == 'RPS') %>% 
+#   filter(OTU %in%ONODES$OTU) %>% 
+#   select(OTU, perc_comm) %>% 
+#   right_join(ONODES) %>% 
+#   mutate(Class=fct_reorder(Class, perc_comm, .fun = sum, .desc = TRUE))
+# 
+# ### MERGE IN TREATMENT ENRICHMENT HERE
+# ONODES %>% dplyr::count(OTU) %>% filter(n!=1)
+# 
+# unique(ONODES$Family)
+# 
+# 
+# 
+# RPS_enrich_OTUs <- 
+#   tibble(OTU=RPS_sigOTUs, 
+#          enrich='RPS') %>% right_join(ONODES) %>% 
+#   filter(enrich == 'RPS')
+# 
+# 
+# library(ggrepel)
+# 
+# FIG_S7 <- 
+#   ONODES %>%
+#   ggplot(aes(x=x, y=y)) + 
+#   geom_point(data=RPS_enrich_OTUs, aes(x=x, y=y), color='blue', size=10, alpha=.5)+
+#   geom_segment(data=GRAPH_EDGES, aes(x=x, y=y, xend=xend, yend=yend), color='grey') + 
+#   geom_point(shape=21, aes(size=perc_comm, fill=Class)) + 
+#   scale_fill_brewer(palette = 'Set1') + 
+#   # geom_text(aes(label=Genus), size=3, nudge_y = .02) + 
+#   geom_point(data = SCFA_NODES, aes(x=x, y=y), size=3, shape=22, fill='black') + 
+#   geom_label(data = SCFA_NODES, aes(x=x, y=y, label=from), size=2,color='white', fill='black')  + 
+#   # theme_net() + 
+#   geom_text_repel(aes(label=Genus),size=2, max.overlaps = 100000)+
+#   theme(legend.position = 'bottom')
+# 
+# 
+# FIG_S7
+# 
 
