@@ -88,16 +88,19 @@ FIG6B <-
   facet_wrap(~scfa, scales = 'free_x', nrow = 1) +
   theme(legend.position = 'none', 
         axis.text = element_text(size=11), 
-        axis.title.x=element_text(size=11)) + 
+        axis.title.x=element_text(size=11),
+        panel.grid.major = element_line(color='grey'), 
+        panel.border = element_rect(color='black', size=1)) + 
   xlab('') + 
-  ylab('difference from controls (mM)')+
+  ylab('estimated difference from controls (mM)')+
   scale_color_manual(values=c('red', 'orange','#3399FF', 'red', 'grey', 'purple'))
 
 FIG6B
 
 ggdraw() + 
   draw_plot(FIG6A, x=0, y=.5, width = 1, height = .5) + 
-  draw_plot(FIG6B, x=0, y=0, width = 1, height=.5)
+  draw_plot(FIG6B, x=0, y=0, width = 1, height=.5) +
+  draw_plot_label(x=c(0,0), y=c(1,.45), label = c('A', 'B'))
 
 
 ## AULC VFA CORRELATIONS ##
@@ -145,14 +148,16 @@ RPS_cec_scfas %>%
   geom_smooth(method = 'lm',se=F, color='black') + 
   geom_text(data=cor_tests, aes(label=stats), size=4, hjust=-.5)+
   geom_point(shape=21, size=3, fill='#3399FF', color='black') +
-  facet_wrap(~scfa, scales = 'free')
+  facet_wrap(~scfa, scales = 'free') + 
+  xlab('Concentration (mM)')
 
 
 
 fig6 <- ggdraw()+
   draw_plot(FIG6A, x = 0, y =.4, width = .6, height = .6)+
   draw_plot(FIG6B, x = 0, y = 0, width = .6, height = .45)+
-  draw_plot(FIG6C, x = .6, y = 0, width = .4, height = 1)
+  draw_plot(FIG6C, x = .6, y = 0, width = .4, height = 1)+
+  draw_plot_label(x=c(0,0, .6), y=c(1,.45,1), label = c('A', 'B','C'))
 
 fig6
 

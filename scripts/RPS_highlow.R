@@ -1,4 +1,51 @@
 ########## HIGH LOW TO CONT ##########
+library(phyloseq)
+library(vegan)
+library(tidyverse)
+library(funfuns)
+library(cowplot)
+
+
+shed_data <- 
+  read_tsv('./data/sal_summary.tsv') %>% 
+  mutate(shedding=ifelse(pignum %in% c(373,321,181,392,97), 'low', 
+         ifelse(pignum %in% c(50, 93,355, 244), 'high', 'Control'))) %>% 
+  filter(treatment %in% c('control', 'RPS'))
+
+
+
+p1 <- shed_data %>%
+  ggplot(aes(x=treatment, y=AULC)) +
+  geom_boxplot() +
+  geom_jitter(aes(fill=shedding), width=.2, size=3, shape=21) + 
+  scale_fill_brewer(palette = 'Set1')
+
+
+
+OTU <- phyloseq::import_mothur(mothur_shared_file = './data/FS12b.shared') %>% t()
+
+TAX <- phyloseq::import_mothur(mothur_constaxonomy_file = './data/FS12b_OTU.taxonomy')
+colnames(TAX) <- c('Domain', 'Phylum', 'Class', 'Order', 'Family' , 'Genus' )
+
+# 
+# TAX <- 
+#   read_tsv('./raw_data/NEW_MOTHUR_OUT/FS12b_OTU.taxonomy') %>%
+#   column_to_rownames(var = 'OTU') %>%
+#   as.matrix() %>% 
+#   tax_table()
+
+MET <- read_tsv('./data/FS12b_meta.tsv') %>%
+  mutate(ID=sample_ID) %>%
+  select(ID, everything()) %>% 
+  mutate(treatment=factor(treatment, levels = c('Control', 'RPS', 'Acid', 'RCS'))) %>% 
+  column_to_rownames(var='sample_ID') %>% 
+  sample_data()
+
+
+FS12b <- phyloseq(MET, TAX, OTU)
+
+
+
 
 ##SHOULD ORDINATE THIS TOO##
 
@@ -78,24 +125,53 @@ to_conts$p.fdr.lab <- ifelse(to_conts$p.fdr < 0.05, to_conts$p.fdr, NA)
 # to_conts %>% write_tsv('./fig_dat/High_low_PERMANOVA.tsv')
 
 # figure 5ish
-p1 <- to_conts %>% filter(tissue =='feces') %>%  ggplot(aes(x=day, y=F.Model, group=treatment, fill=treatment, color=treatment, label=p.fdr.lab)) +
-  geom_line(size=1.52) + geom_point(shape=21) + scale_color_brewer(palette = 'Set1') + 
-  geom_label(color='black') +
+p2 <- to_conts %>% filter(tissue =='feces') %>% 
+  ggplot(aes(x=day, y=F.Model, group=treatment, fill=treatment, color=treatment, label=p.fdr.lab)) +
+  geom_line(size=1.52) +
+  geom_point(shape=21, show.legend = F) + 
+  scale_color_brewer(palette = 'Set1') + 
+  geom_label(color='black', show.legend = F) +
+  theme_cowplot()+
   scale_fill_brewer(palette = 'Set1') + 
-  ggtitle('Community differences compared to control group over time', subtitle = 'RPS only') + labs(fill='Shedding', 
-                                                                                                     color='Shedding')
+  labs(color='Shedding status') #+
+  # ggtitle('Community differences compared to control group over time', subtitle = 'RPS only') + labs(fill='Shedding', 
+                                                                                                     
 
-p1
+p2
 
-to_conts %>% filter(!(tissue %in% c('feces', 'tet'))) %>% 
+p3 <- 
+  to_conts %>% filter(!(tissue %in% c('feces', 'tet', 'il_muc'))) %>% 
   ggplot(aes(x=tissue, y=F.Model, fill=treatment)) +
   geom_col(position = 'dodge', color='black') + geom_text(aes(label=p.fdr.lab), position=position_dodge(width = 1), vjust=1.5) + 
-  ggtitle('PERMANOVA F.stat. : Difference compared to controls across tissues',
-          subtitle = 'Higher values represent a greater difference compared to control')  + scale_fill_brewer(palette = 'Set1')
+  # ggtitle('PERMANOVA F.stat. : Difference compared to controls across tissues',
+  #         subtitle = 'Higher values represent a greater difference compared to control')  +
+  scale_fill_brewer(palette = 'Set1') + 
+  theme_cowplot() + 
+  labs(fill='Shedding status')
+
+
+p3
+
+
+
 
 
 to_conts %>% write_tsv('./output/PERMANOVAs_highlow_vs_control.tsv')
 
+
+
+
+
+### cowplot
+
+fig_S1 <- ggdraw()+
+  draw_plot(p1, 0,.45,.6,.55)+
+  draw_plot(p3, .45,.45,.6,.45)+
+  draw_plot(p2, 0,0,1,.4)+
+  draw_plot_label(x=c(0,0, .6), y=c(1,.45,1), label = c('A', 'B','C'))
+fig_S1
+
+ggsave('output/figureS1.jpeg', height=5, width = 7, units = 'in')
 
 ###
 

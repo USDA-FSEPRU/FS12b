@@ -356,7 +356,7 @@ plt_net <-
     scale_fill_brewer(palette = 'Set1') + 
     # geom_text(aes(label=Genus), size=3, nudge_y = .02) + 
     # geom_point(data = SCFA_NODES, aes(x=x, y=y), size=3, shape=22, fill='black') + 
-    geom_label(data = SCFA_NODES, aes(x=x, y=y, label=from), size=2,color='white', fill='black')  + 
+    geom_label(data = SCFA_NODES, aes(x=x, y=y, label=from),fontface='bold', size=2.5,color='black', fill='grey85')  + 
     # theme_net() +
     geom_text_repel(aes(label=Genus),size=2.5, max.overlaps = 100000)+
     theme(legend.position = 'bottom') + 
@@ -425,7 +425,7 @@ full_net_fig7 <-
 full_net_fig7
 
 
-ggsave('./output/Figure7_all_data_net.jpeg', width = 9, height = 7, units = 'in')
+ggsave('./output/figure7.jpeg',full_net_fig7, width = 9, height = 7, units = 'in')
 
 ####
 

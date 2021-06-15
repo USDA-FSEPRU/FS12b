@@ -71,15 +71,19 @@ pig_room_tibble <-
   mutate(xpos=xpos+xpos_adj, 
          ypos=ypos+ypos_adj)
 
+library(ggtext)
+
+
 p2 <- 
-  pig_room_tibble %>% ggplot()+
+  pig_room_tibble %>%
+  ggplot()+
   geom_tile(data=room_tibble, aes(x=xpos, y=ypos, fill=treatment),color='black', width=1.5, height=.8, size=1)+
   geom_point(aes(x=xpos, y=ypos,fill=treatment), shape=24, size=3, stroke=1) +
   geom_text(data = room_tibble, aes(label=treatment, y=ypos, x=xpos), size=5)+
   annotate(geom='text', x=3, y=.6,size=5, label='One pig per pen from each treatment transfered to isolation rooms')+
-  annotate(geom='text', x=3, y=.5,size=5, label='Infected with 10e8 CFU Salmonella strain USDA15WA-1')+
-  annotate(geom='text', x=3, y=-.5,size=5, label='Feces collected at D0, D2, D7, D14, and D21 post infection.')+
-  annotate(geom='text', x=3, y=-.6,size=5, label='Necropsies performed at D21')+
+  annotate(geom='richtext', x=3, y=.5,size=5, label='Challenged with 8e7 CFU <i>S. enterica</i> strain SX240', fill = NA, label.color = NA,)+
+  annotate(geom='text', x=3, y=-.5,size=5, label='Feces collected at 0, 2, 7, 14, and 21 dpi')+
+  annotate(geom='text', x=3, y=-.6,size=5, label='Necropsies performed at 21 dpi')+
   
   scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple'))  + 
   theme_cowplot() +
@@ -91,7 +95,7 @@ p2 <-
   # xlim(-1,7)+
   # ylim(-1,1) +
 p2
-
+# label="P(italic(i))==8~italic(i)", parse=TRUE
 
 
 
@@ -106,7 +110,7 @@ mfig
 
 
 ggsave(mfig,
-       filename = './output/methods.jpeg',
+       filename = './output/figure1.jpeg',
        width = 180,
        height = 180,
        device = 'jpeg',
