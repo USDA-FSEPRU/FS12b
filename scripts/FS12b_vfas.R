@@ -197,7 +197,7 @@ cor_tests <-
   filter(column2=='AULC') %>% 
   mutate(concentration=c(17, 5, .7, .45), 
          AULC=c(10,10,10,10), 
-         stats=paste('r=', round(estimate, 2), '\nP=', round(p.value, 3)), 
+         stats=paste('r=', round(estimate, 2), '\nP=', formatC(signif(p.value,2), format = "e", digits=1)), 
          scfa=factor(scfa, levels = c('butyrate', 'valerate', 'caproate', 'succinate')))
 
 
@@ -217,7 +217,7 @@ TST <-
 
 TST 
 
-ggsave('./output/SCFA_AULC_cor_supp.jpg', height = 5, width = 7, units = 'in')
+ggsave('./output/figure_S2.jpg', height = 5, width = 7, units = 'in')
 # #########
 # 
 # filter(vfas.gather, hour == 0 ) %>% 

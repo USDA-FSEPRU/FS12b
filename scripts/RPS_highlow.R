@@ -9,16 +9,26 @@ library(cowplot)
 shed_data <- 
   read_tsv('./data/sal_summary.tsv') %>% 
   mutate(shedding=ifelse(pignum %in% c(373,321,181,392,97), 'low', 
-         ifelse(pignum %in% c(50, 93,355, 244), 'high', 'Control'))) %>% 
+         ifelse(pignum %in% c(50, 93,355, 244), 'high', 'control'))) %>% 
   filter(treatment %in% c('control', 'RPS'))
 
+# pbuild <- ggplot_build(p1)
 
+# pbuild$data
+
+my_cols <- c(low='#377EB8', high='#E41A1C', control='#4DAF4A')
+#4DAF4A green
+#E41A1C red
+#377EB8 blue
 
 p1 <- shed_data %>%
   ggplot(aes(x=treatment, y=AULC)) +
   geom_boxplot() +
   geom_jitter(aes(fill=shedding), width=.2, size=3, shape=21) + 
-  scale_fill_brewer(palette = 'Set1')
+  # scale_fill_brewer(palette = 'Set1') + 
+  scale_fill_manual(values = my_cols) + 
+  theme_cowplot() + 
+  xlab('')
 
 
 
@@ -133,7 +143,8 @@ p2 <- to_conts %>% filter(tissue =='feces') %>%
   geom_label(color='black', show.legend = F) +
   theme_cowplot()+
   scale_fill_brewer(palette = 'Set1') + 
-  labs(color='Shedding status') #+
+  labs(color='Shedding') #+
+  # xlab('')
   # ggtitle('Community differences compared to control group over time', subtitle = 'RPS only') + labs(fill='Shedding', 
                                                                                                      
 
@@ -146,8 +157,9 @@ p3 <-
   # ggtitle('PERMANOVA F.stat. : Difference compared to controls across tissues',
   #         subtitle = 'Higher values represent a greater difference compared to control')  +
   scale_fill_brewer(palette = 'Set1') + 
+  xlab('')+
   theme_cowplot() + 
-  labs(fill='Shedding status')
+  labs(fill='Shedding')
 
 
 p3
@@ -165,10 +177,10 @@ to_conts %>% write_tsv('./output/PERMANOVAs_highlow_vs_control.tsv')
 ### cowplot
 
 fig_S1 <- ggdraw()+
-  draw_plot(p1, 0,.45,.6,.55)+
-  draw_plot(p3, .45,.45,.6,.45)+
-  draw_plot(p2, 0,0,1,.4)+
-  draw_plot_label(x=c(0,0, .6), y=c(1,.45,1), label = c('A', 'B','C'))
+  draw_plot(p1, 0,.45,.45,.55)+
+  draw_plot(p3, .45,.45,.55,.45)+
+  draw_plot(p2, 0,0,1,.45)+
+  draw_plot_label(x=c(0,0, .45), y=c(1,.45,1), label = c('A', 'B','C'))
 fig_S1
 
 ggsave('output/figureS1.jpeg', height=5, width = 7, units = 'in')

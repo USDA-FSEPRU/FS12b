@@ -335,8 +335,8 @@ sal_tis21 <-
 
 glimpse(sal_tis21)
 
-fit_interact   <- lmer(log_sal ~ tissue * treatment + (1|pignum) , data=sal_tis21)      # time is factor
-
+fit_interact   <- lmer(log_sal ~ tissue * treatment + (1|pignum) , data=sal_tis21)      # 
+summary(fit_interact)
 
 
 ### REPLACE FIG3 (TISSUE SHEDDING) WITH THESE

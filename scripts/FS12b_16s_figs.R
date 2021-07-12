@@ -1145,8 +1145,9 @@ FIG5 <-
 FIG5
 ggsave(filename = './output/figure5.jpeg', plot = FIG5, device = 'jpeg', 
        width = 280, 
-       height=180, units = 'mm', 
+       height=200, units = 'mm', 
        scale = 1.2)
+
 # For each Day
 
 
