@@ -825,7 +825,7 @@ tocont <- list(DESeq_difabund(phyloseq = FS12b, day = 'D0', tissue = 'F', scient
 # tocont_genus <- bind_rows(tocont_genus)
 # tocont_genusF <- tocont_genus %>% filter(abs(log2FoldChange) > .5)
 
-tocont <- bind_rows(tocont)
+tocont <- bind_rows(tocont) %>% write_tsv('./output/unfiltered_DESEQ.tsv')
 tocontf <- tocont[abs(tocont$log2FoldChange) > .5,]
 
 tocontf %>% 
