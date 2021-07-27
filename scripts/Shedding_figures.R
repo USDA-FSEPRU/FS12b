@@ -146,6 +146,8 @@ glimpse(sal_no0)
 fit_interact   <- lmer(log_sal ~ time_point_fact * treatment + (1|pignum) , data=sal_no0)      # time is factor
 fit_nointeract <- lmer(log_sal ~ time_point_fact + treatment + (1|pignum) , data=sal_no0)      # time is factor
 
+
+summary(fit_interact)
 # 
 # AIC(fit_interact, fit_nointeract)
 # anova(fit_interact, fit_nointeract)
@@ -187,12 +189,13 @@ rbind(D0s, means.emm) %>%
          daynum=as.numeric(as.character(day))) %>% 
   ggplot(aes(x=daynum, y=estimate, color=treatment, group=treatment)) + geom_point()+
   geom_line(size=1.75)+
-  geom_errorbar(aes(ymin=conf.low, ymax=conf.high), color='black', width=.2)+
-  geom_point(aes(fill=treatment),size=3, shape=21, color='black') +
+  geom_errorbar(aes(ymin=conf.low, ymax=conf.high),position = position_jitter(width = .2, seed=2), color='black', width=.2)+
+  geom_point(aes(fill=treatment),position = position_jitter(width = .2, seed=2), size=3, shape=21, color='black') +
   scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple'))+
   scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
-  ylab('log(CFU) Salmonella/g feces') + 
-  xlab('Days post infection') + 
+  # ylab('log(CFU) Salmonella/g feces') +
+  ylab(expression("log(CFU) "~italic("Salmonella")~"/gram feces"))+
+  xlab('Days post innoculation') + 
   theme(legend.position = 'top',panel.grid.major = element_line(color='grey75'))
 
 F2A
@@ -200,7 +203,8 @@ F2A
 F2B <- 
   contrast.emm %>%
   mutate(p.plot=ifelse(adj.p.value < 0.05, adj.p.value, NA), 
-         p.plot=round(p.plot, digits = 2)) %>% 
+         p.plot=round(p.plot, digits = 2), 
+         day2=factor(paste(day, 'dpi'),levels = c('2 dpi', '7 dpi', '14 dpi', '21 dpi')))%>% 
     filter(grepl('control', contrast)) %>% 
     ggplot(aes(x=contrast, y=estimate, color=contrast))+
     geom_point() +
@@ -208,7 +212,7 @@ F2B <-
     geom_pointrange(aes(ymin=conf.low, ymax=conf.high)) +
     geom_text(aes(label=p.plot), nudge_x = .2)+
     coord_flip()+ 
-    facet_wrap(~day, nrow = 1)+
+    facet_wrap(~day2, nrow = 1)+
     scale_color_manual(values=c('red','orange','#3399FF'))  + 
     theme(legend.position = 'none',
           panel.grid.major = element_line(color='grey85'),
@@ -216,9 +220,6 @@ F2B <-
     ylab('Estimated difference from control -- log(CFUs)')
 
 F2B
-
-#### TISSUES ###
-
 
 
 # AULC
@@ -277,12 +278,14 @@ F2D <- AULC_tuk %>% filter(grepl('control', contrast)) %>%
             hjust=0) +
   ggtitle('ANOVA P = 0.012') + 
   ylim(-32,32)+
+  ylab('Estimated difference from control -- AULC')+
   # scale_y_continuous(expand = expand_scale(add = c(5,15)))+
   theme(panel.border = element_rect(color='black', fill=NA), 
         legend.position='none', 
         axis.title.y = element_blank(), 
         axis.text = element_text(size=10), 
-        panel.grid.major.x = element_line(color='grey', size=.2))+
+        panel.grid.major.x = element_line(color='grey', size=.2), 
+        axis.title.x = element_text(size=12))+
   coord_flip() +
   scale_color_manual(values=c('red','orange','#3399FF')) 
 F2D
@@ -424,7 +427,7 @@ F3A <- means.emm %>%
   geom_errorbar(aes(ymin=conf.low,ymax=conf.high), width=.2) +
   scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
   scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) +
-  ylab('log CFU / g tissue') +
+  ylab(expression("log(CFU) "~italic("Salmonella")~"/gram tissue"))+
   theme(panel.border = element_rect(color = 'black', fill = NA), 
         axis.text.x = element_text(angle = -45, hjust = 0), 
         axis.title.x = element_blank(), 
@@ -480,11 +483,12 @@ fig_2
 
 ggsave(fig_2,
        filename = './output/figure2.jpeg',
-       width = 250,
+       width = 270,
        height = 190,
        device = 'jpeg',
        dpi = 300,
-       units = 'mm')
+       units = 'mm', 
+       bg='white')
 
 
 # Figure 3

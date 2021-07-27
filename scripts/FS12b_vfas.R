@@ -69,7 +69,7 @@ FIG6A <-
   geom_errorbar(width=.2) + 
   facet_wrap(~scfa, scales = 'free', nrow=1)+
   theme(legend.position = 'top') + 
-  ylab('Cecal Concentation (mM)') + 
+  ylab('Concentation (mM)') + 
   xlab('') + 
   theme(axis.text.x=element_text(size=10, angle = -40, hjust=.1))+
   scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple'))
@@ -82,8 +82,9 @@ FIG6B <-
   filter(grepl('Control', contrast)) %>% 
   ggplot(aes(x=contrast, y=estimate, ymin=conf.low, ymax=conf.high)) +
   geom_hline(yintercept = 0)+
-  geom_pointrange(aes(color=contrast)) + 
-  geom_text(aes(label=round(p.plot, 3), color=contrast), nudge_x = .2)+
+  geom_pointrange(aes(color=contrast), size=1.5, fatten = .5) +
+  geom_point(aes(fill=contrast),size=4, stroke=.85, color='black', shape=21)+
+  geom_text(aes(label=round(p.plot, 3), color=contrast), fontface='bold', nudge_x = .25)+
   coord_flip()+
   facet_wrap(~scfa, scales = 'free_x', nrow = 1) +
   theme(legend.position = 'none', 
@@ -93,7 +94,9 @@ FIG6B <-
         panel.border = element_rect(color='black', size=1)) + 
   xlab('') + 
   ylab('estimated difference from controls (mM)')+
-  scale_color_manual(values=c('red', 'orange','#3399FF', 'red', 'grey', 'purple'))
+  scale_color_manual(values=c('red', 'orange','#3399FF', 'red', 'grey', 'purple'))+
+  scale_fill_manual(values=c('red', 'orange','#3399FF', 'red', 'grey', 'purple'))
+
 
 FIG6B
 
@@ -162,7 +165,36 @@ fig6 <- ggdraw()+
 fig6
 
 ggsave(filename = './output/figure6.jpeg', device = 'jpeg', 
-       width=280, height=180, units = 'mm')
+       width=280, height=180, units = 'mm', bg='white')
+
+
+###### fig 6 alternate
+
+FIG6C_v2 <- 
+  RPS_cec_scfas %>%
+  as.data.frame() %>% 
+  gather(-AULC, key='scfa', value='concentration') %>% 
+  filter(scfa %in% c('butyrate', 'valerate', 'caproate', 'succinate')) %>%
+  mutate(scfa=factor(scfa, levels = c('butyrate', 'valerate', 'caproate', 'succinate'))) %>% 
+  ggplot(aes(x=concentration, y=AULC)) +
+  geom_smooth(method = 'lm',se=F, color='black') + 
+  geom_text(data=cor_tests, aes(label=stats), size=4, hjust=-.5)+
+  geom_point(shape=21, size=3, fill='#3399FF', color='black') +
+  facet_wrap(~scfa, scales = 'free', nrow = 1) + 
+  xlab('Concentration (mM)')
+
+FIG6C_v2
+
+fig6_v2 <- ggdraw()+
+  draw_plot(FIG6A, x = 0, y =.6, width = 1, height = .4)+
+  draw_plot(FIG6B, x = 0, y = .33, width = 1, height = .3)+
+  draw_plot(FIG6C_v2, x = 0, y = 0, width = 1, height = .33)+
+  draw_plot_label(x=c(0,0, 0), y=c(1,.63,.33), label = c('A', 'B','C'))
+
+fig6_v2
+
+ggsave(filename = './output/figure6_v2.jpeg', device = 'jpeg', 
+       width=280, height=250, units = 'mm', bg = 'white')
 
 ### D21 CECUM ALL VFAS  ###
 

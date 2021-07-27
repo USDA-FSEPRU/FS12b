@@ -19,9 +19,8 @@ tidy_param <- function(param_df, parameter_name){
 }
 
 
-map2(.x=ancom_DA$res, .y=names(ancom_DA$res), tidy_param)%>%
-  purrr::reduce(left_join) %>% mutate
-
+# map2(.x=ancom_DA$res, .y=names(ancom_DA$res), tidy_param)%>%
+  # purrr::reduce(left_join)
 
 #### functionize ###
 

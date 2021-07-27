@@ -352,14 +352,14 @@ shanfig1 <-
   geom_line(aes(group=treatment), size=1) + 
   scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
   theme_cowplot() +
-  xlab('Days post infection') + 
+  xlab('Days post innoculation') + 
   ylab('Shannon index')  + 
-  theme(legend.position = 'bottom',panel.grid.major = element_line(color='grey')) + 
-  annotate(geom='label', x=0, y=3, label='P=0.04', fill='#3399FF', size=3.5,fontface='bold')+
-  annotate(geom='label', x=0, y=2.85, label='P=0.01', fill='orange', size=3.5,fontface='bold')+
-  annotate(geom='label', x=2, y=3, label='P=0.01', fill='#3399FF', size=3.5,fontface='bold')+
-  annotate(geom='label', x=14, y=3, label='P=0.03', fill='#3399FF', size=3.5,fontface='bold')+
-  annotate(geom='label', x=21, y=3, label='P=0.05', fill='#3399FF', size=3.5,fontface='bold')
+  theme(legend.position = 'top',panel.grid.major = element_line(color='grey')) + 
+  annotate(geom='label', x=0, y=3, label='0.04', fill='#3399FF', size=4,fontface='bold')+
+  annotate(geom='label', x=0, y=2.85, label='0.01', fill='orange', size=4,fontface='bold')+
+  annotate(geom='label', x=2, y=3, label='0.01', fill='#3399FF', size=4,fontface='bold')+
+  annotate(geom='label', x=14, y=3, label='0.03', fill='#3399FF', size=4,fontface='bold')+
+  annotate(geom='label', x=21, y=3, label='0.05', fill='#3399FF', size=4,fontface='bold')
 
 shanfig1
 
@@ -723,11 +723,11 @@ FIG4A <-
   ggplot(aes(x=daynum, y=F.Model, group=treatment, fill=treatment, color=treatment, label=p.fdr.lab)) +
   geom_line(size=1.52) +
   geom_point(shape=21) + 
-  geom_label(color='black', show.legend = FALSE) +
+  geom_label(color='black', show.legend = FALSE, fontface='bold', size=4) +
   scale_color_manual(values=c('#3399FF', 'orange', 'red', 'grey', 'purple')) + 
   scale_fill_manual(values=c('#3399FF', 'orange', 'red', 'grey', 'purple')) +
   theme_cowplot() + 
-  xlab('Day') + 
+  xlab('Days post innoculation') + 
   ylab('F.Model vs Control') + 
   theme(panel.grid.major  = element_line(color='grey'), 
         legend.position = 'none')
@@ -919,9 +919,11 @@ FIG4C <-
     # legend.background = element_rect(colour="grey", fill="grey", size=3),
         legend.position=c(.39,.75)
   )+
-  ylab('Number of significantly enriched OTUs vs Control') + 
+  ylab('Number of enriched OTUs') + 
   xlab('')
 FIG4C
+FIG4C_v2 <- FIG4C + theme(legend.position = 'right')
+FIG4C_v2
 ### TEST ####
 # 
 # tocontf %>% 
@@ -966,12 +968,11 @@ tocontf %>%
 colnames(tocontf)
 
 fig_4 <- ggdraw()+
-  draw_plot(FIG4A, 0,.45,.6,.55)+
-  draw_plot(FIG4B, 0,0,.6,.45)+
+  draw_plot(FIG4B, 0,.5,.6,.5)+
+  draw_plot(FIG4A, 0,0,.6,.5)+
   draw_plot(FIG4C, .6,0,.4,1)+
-  draw_plot_label(x=c(0,0, .6), y=c(1,.45,1), label = c('A', 'B','C'))
+  draw_plot_label(x=c(0,0, .6), y=c(1,.5,1), label = c('A', 'B','C'))
 fig_4
-
 
 
 ggsave(fig_4,
@@ -980,7 +981,29 @@ ggsave(fig_4,
        height = 140,
        device = 'jpeg',
        dpi = 300,
-       units = 'mm', scale = 1.2)
+       units = 'mm', scale = 1.2, 
+       bg='white')
+##
+
+fig_4_v2 <- ggdraw()+
+  draw_plot(FIG4B, 0,.66,1,.33)+
+  draw_plot(FIG4A, 0,.33,1,.33)+
+  draw_plot(FIG4C_v2, 0,0,1,.33)+
+  draw_plot_label(x=c(0,0, 0), y=c(1,.66,.33), label = c('A', 'B','C'))
+fig_4_v2
+
+
+
+ggsave(fig_4_v2,
+       filename = './output/figure4_v2.jpeg',
+       width = 250,
+       height = 250,
+       device = 'jpeg',
+       dpi = 300,
+       units = 'mm', scale = 1.2, 
+       bg='white')
+
+
 
 
 # tocontf %>% 
