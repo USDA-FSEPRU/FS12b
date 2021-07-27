@@ -352,7 +352,7 @@ shanfig1 <-
   geom_line(aes(group=treatment), size=1) + 
   scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
   theme_cowplot() +
-  xlab('Days post innoculation') + 
+  xlab('Days post inoculation') + 
   ylab('Shannon index')  + 
   theme(legend.position = 'top',panel.grid.major = element_line(color='grey')) + 
   annotate(geom='label', x=0, y=3, label='0.04', fill='#3399FF', size=4,fontface='bold')+
@@ -727,7 +727,7 @@ FIG4A <-
   scale_color_manual(values=c('#3399FF', 'orange', 'red', 'grey', 'purple')) + 
   scale_fill_manual(values=c('#3399FF', 'orange', 'red', 'grey', 'purple')) +
   theme_cowplot() + 
-  xlab('Days post innoculation') + 
+  xlab('Days post inoculation') + 
   ylab('F.Model vs Control') + 
   theme(panel.grid.major  = element_line(color='grey'), 
         legend.position = 'none')
@@ -1169,7 +1169,8 @@ FIG5
 ggsave(filename = './output/figure5.jpeg', plot = FIG5, device = 'jpeg', 
        width = 280, 
        height=200, units = 'mm', 
-       scale = 1.2)
+       scale = 1.2, 
+       bg='white')
 
 # For each Day
 

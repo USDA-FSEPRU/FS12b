@@ -195,7 +195,7 @@ rbind(D0s, means.emm) %>%
   scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
   # ylab('log(CFU) Salmonella/g feces') +
   ylab(expression("log(CFU) "~italic("Salmonella")~"/gram feces"))+
-  xlab('Days post innoculation') + 
+  xlab('Days post inoculation') + 
   theme(legend.position = 'top',panel.grid.major = element_line(color='grey75'))
 
 F2A
@@ -207,13 +207,14 @@ F2B <-
          day2=factor(paste(day, 'dpi'),levels = c('2 dpi', '7 dpi', '14 dpi', '21 dpi')))%>% 
     filter(grepl('control', contrast)) %>% 
     ggplot(aes(x=contrast, y=estimate, color=contrast))+
-    geom_point() +
     geom_hline(yintercept = 0)+
-    geom_pointrange(aes(ymin=conf.low, ymax=conf.high)) +
-    geom_text(aes(label=p.plot), nudge_x = .2)+
+    geom_pointrange(aes(ymin=conf.low, ymax=conf.high), size=1.5, fatten = .5) +
+    geom_point(aes(fill=contrast), shape=21, size=4, color='black') +
+    geom_text(aes(label=p.plot), nudge_x = .2, fontface='bold')+
     coord_flip()+ 
     facet_wrap(~day2, nrow = 1)+
     scale_color_manual(values=c('red','orange','#3399FF'))  + 
+    scale_fill_manual(values=c('red','orange','#3399FF'))  + 
     theme(legend.position = 'none',
           panel.grid.major = element_line(color='grey85'),
           panel.border = element_rect(color='black', size = 1.25)) +
@@ -272,10 +273,11 @@ F2D <- AULC_tuk %>% filter(grepl('control', contrast)) %>%
   mutate(contrast=factor(contrast, levels = c('RCS-control', 'Acid-control','RPS-control'))) %>%
   ggplot(aes(x=contrast, y=estimate, ymin=conf.low, ymax=conf.high,color=contrast)) +
   geom_hline(yintercept = 0, color='grey') +
-  geom_pointrange(size=.75) +
+  geom_pointrange(size=1.3, fatten = .5) +
+  geom_point(aes(fill=contrast), shape=21, color='black', size=3.5)+
   geom_text(aes(x=contrast,y=8,
                 label=paste('P=', round(adj.p.value, 2))), 
-            hjust=0) +
+            hjust=0, fontface='bold') +
   ggtitle('ANOVA P = 0.012') + 
   ylim(-32,32)+
   ylab('Estimated difference from control -- AULC')+
@@ -287,7 +289,9 @@ F2D <- AULC_tuk %>% filter(grepl('control', contrast)) %>%
         panel.grid.major.x = element_line(color='grey', size=.2), 
         axis.title.x = element_text(size=12))+
   coord_flip() +
-  scale_color_manual(values=c('red','orange','#3399FF')) 
+  scale_color_manual(values=c('red','orange','#3399FF')) +
+  scale_fill_manual(values=c('red','orange','#3399FF')) 
+
 F2D
 # 
 # sample(2:50, size = length(sal_no0$Salmonella[sal_no0$Salmonella == 50]), replace = TRUE)
@@ -449,12 +453,14 @@ F3B <- contrast.emm %>%
   mutate(p.plot =ifelse(adj.p.value <= 0.05, adj.p.value, NA)) %>% 
   ggplot(aes(x=contrast, y=estimate, ymin=conf.low, ymax=conf.high, color=contrast)) +
   geom_hline(yintercept = 0, color='black')+
-  geom_pointrange(size=.5) + 
-  geom_text(aes(label=round(p.plot, digits = 4)), nudge_x = .2)+
+  geom_pointrange(size=1, fatten = .5) +
+  geom_point(aes(fill=contrast), color='black', shape=21, size=3)+
+  geom_text(aes(label=round(p.plot, digits = 4)), fontface='bold', nudge_x = .2)+
   coord_flip() + 
   facet_wrap(.~tissue, ncol = 5) +
   ylim(-3.5,3.5) + 
   scale_color_manual(values=c('red','orange','#3399FF')) +
+  scale_fill_manual(values=c('red','orange','#3399FF')) +
   theme(panel.border = element_rect(colour = "black", fill=NA, size=1), 
         axis.title.y=element_blank(), 
         legend.position = 'none', 
@@ -533,7 +539,8 @@ ggsave(fig_3,
        height = 150,
        device = 'jpeg',
        dpi = 300,
-       units = 'mm')
+       units = 'mm', 
+       bg='white')
 
 
 
