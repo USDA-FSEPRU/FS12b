@@ -9,14 +9,15 @@ library(cowplot)
 shed_data <- 
   read_tsv('./data/sal_summary.tsv') %>% 
   mutate(shedding=ifelse(pignum %in% c(373,321,181,392,97), 'low', 
-         ifelse(pignum %in% c(50, 93,355, 244), 'high', 'control'))) %>% 
-  filter(treatment %in% c('control', 'RPS'))
+         ifelse(pignum %in% c(50, 93,355, 244), 'high', 'CON')), 
+         treatment=ifelse(treatment == 'control', 'CON', treatment)) %>% 
+  filter(treatment %in% c('CON', 'RPS'))
 
 # pbuild <- ggplot_build(p1)
 
 # pbuild$data
 
-my_cols <- c(low='#377EB8', high='#E41A1C', control='#4DAF4A')
+my_cols <- c(low='#377EB8', high='#E41A1C', CON='#4DAF4A')
 #4DAF4A green
 #E41A1C red
 #377EB8 blue
@@ -46,8 +47,13 @@ colnames(TAX) <- c('Domain', 'Phylum', 'Class', 'Order', 'Family' , 'Genus' )
 
 MET <- read_tsv('./data/FS12b_meta.tsv') %>%
   mutate(ID=sample_ID) %>%
-  select(ID, everything()) %>% 
-  mutate(treatment=factor(treatment, levels = c('Control', 'RPS', 'Acid', 'RCS'))) %>% 
+  select(ID, everything()) %>%
+  mutate(treatment=case_when(
+    treatment == 'Control' ~ 'CON', 
+    treatment == 'Acid'    ~ 'FAM', 
+    TRUE                   ~ treatment
+  )) %>% 
+  mutate(treatment=factor(treatment, levels = c('CON', 'RPS', 'FAM', 'RCS'))) %>% 
   column_to_rownames(var='sample_ID') %>% 
   sample_data()
 
@@ -60,13 +66,13 @@ FS12b <- phyloseq(MET, TAX, OTU)
 ##SHOULD ORDINATE THIS TOO##
 
 # FS12b_HL <- FS12b %>% subset_samples(treatment %in% c('Control', 'RPS') & tissue =='F')
-FS12b_HL <- FS12b %>% subset_samples(treatment %in% c('Control', 'RPS'))
+FS12b_HL <- FS12b %>% subset_samples(treatment %in% c('CON', 'RPS'))
 
 # FS12b_HL %>% subset_samples(treatment == 'RPS') %>% sample_data() %>% select(pignum)
 
 
 FS12b_HL@sam_data$shed <- ifelse(FS12b_HL@sam_data$pignum %in% c(373,321,181,392,97), 'low', 
-                                 ifelse(FS12b_HL@sam_data$pignum %in% c(50, 93,355, 244), 'high', 'Control'))
+                                 ifelse(FS12b_HL@sam_data$pignum %in% c(50, 93,355, 244), 'high', 'CON'))
 
 FS12b_HL@sam_data$set <- paste(FS12b_HL@sam_data$day, FS12b_HL@sam_data$tissue, FS12b_HL@sam_data$shed, sep = '_')
 
@@ -118,9 +124,9 @@ fin$pairs <- gsub('_Q_', ' tet ', fin$pairs)
 fin <- fin[grep('.* (.*) .* vs .* \\1 .*', fin$pairs),]
 
 
-to_conts <- fin[grep('Control', fin$pairs),]
+to_conts <- fin[grep('CON', fin$pairs),]
 
-not_conts <- fin[-grep('Control', fin$pairs),]
+not_conts <- fin[-grep('CON', fin$pairs),]
 
 to_conts$tissue <- gsub('D[0-9]+ (.*) ([A-Za-z_]+) vs D[0-9]+ .* ([A-Za-z]+)', '\\1', to_conts$pairs)
 to_conts$treatment <- gsub('D[0-9]+ .* ([A-Za-z_]+) vs D[0-9]+ .* ([A-Za-z]+)', '\\2', to_conts$pairs)

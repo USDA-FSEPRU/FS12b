@@ -1,4 +1,3 @@
-## libraries ##
 library(tidyverse)
 library(phyloseq)
 library(vegan)
@@ -6,6 +5,7 @@ library(funfuns)
 library(broom)
 library(DESeq2)
 library(cowplot)
+library(forcats)
 
 ## Build phyloseq object ##
 ## probably split this into the calculations and then the figures.
@@ -32,7 +32,7 @@ colnames(TAX) <- c('Domain', 'Phylum', 'Class', 'Order', 'Family' , 'Genus' )
 MET <- read_tsv('./data/FS12b_meta.tsv') %>%
   mutate(ID=sample_ID) %>%
   select(ID, everything()) %>% 
-  mutate(treatment=factor(treatment, levels = c('Control', 'RPS', 'Acid', 'RCS'))) %>% 
+  mutate(treatment=fct_recode(treatment, CON='Control', RPS='RPS', FAM='Acid', RCS='RCS')) %>% #pull(treatment)
   column_to_rownames(var='sample_ID') %>% 
   sample_data()
 
@@ -49,7 +49,7 @@ hist(sample_sums(FS12b), breaks=100)
 ### Ordinations ###
 # not including ordinations 
 # fecal only ordinations #
-# FS12b_feces <- FS12b %>% 
+# FS12b_feces <- FS12b %>%
 #   prune_samples(samples = FS12b@sam_data$tissue =='F')
 # 
 # FS12b_feces_meta <- FS12b_feces@sam_data %>% data.frame()
@@ -57,6 +57,16 @@ hist(sample_sums(FS12b), breaks=100)
 #   data.frame()
 # 
 # 
+# feces_OTU <- FS12b_feces@otu_table %>% as(., 'matrix')
+# 
+# library(fastTopics)
+# 
+# 
+# k5 <- fit_topic_model(feces_OTU, k=5)
+# 
+# 
+# structure_plot(k5, grouping =FS12b_feces_meta$treatment )
+# # 
 # FS12b_feces_nmds <- NMDS_ellipse(metadata = FS12b_feces_meta,
 #                                  OTU_table = FS12b_feces_OTU,
 #                                  grouping_set = 'set',distance_method = 'bray')
@@ -319,7 +329,7 @@ library(emmeans)
 shan_dat <- 
   FS12b@sam_data %>%
   as_tibble() %>% filter(tissue == 'F') %>% 
-  mutate(treatment = factor(treatment, levels = c('Control', 'RPS', 'Acid', 'RCS')))
+  mutate(treatment = factor(treatment, levels = c('CON', 'RPS', 'FAM', 'RCS')))
 
 
 
@@ -332,9 +342,9 @@ shan_contrast.emm <-
   emmeans(shan_mod, ~ treatment | day) %>%
   contrast(method='revpairwise') %>%
   tidy(conf.int=TRUE) %>% 
-  filter(grepl('Control', contrast)) %>% 
+  filter(grepl('CON', contrast)) %>% 
   mutate(day=factor(day, levels = c('D0','D2', 'D7', 'D14', 'D21')), 
-         contrast=factor(contrast, levels = c('RCS - Control', 'Acid - Control','RPS - Control' )), 
+         contrast=factor(contrast, levels = c('RCS - CON', 'FAM - CON','RPS - CON' )), 
          pval=round(adj.p.value, digits = 3), 
          p.plot=ifelse(pval < 0.1, pval, NA)) 
 
@@ -342,7 +352,7 @@ shan_means.emm <-
   emmeans(shan_mod, ~ treatment | day) %>%
   tidy(conf.int=TRUE) %>% 
   mutate(day=factor(day, levels = c('D0','D2', 'D7', 'D14', 'D21')), 
-                    treatment=factor(treatment, levels=c('Control', 'RPS', 'Acid', 'RCS')))
+                    treatment=factor(treatment, levels=c('CON', 'RPS', 'FAM', 'RCS')))
 
 shanfig1 <- 
   shan_means.emm %>% 
@@ -707,12 +717,12 @@ to_conts$p.fdr <- p.adjust(to_conts$p.value, method = 'fdr')
 to_conts$p.fdr <- round(to_conts$p.fdr, digits = 3)
 to_conts$p.fdr.lab <- ifelse(to_conts$p.fdr < 0.05, to_conts$p.fdr, NA)
 
-to_conts$treatment <- factor(to_conts$treatment, levels=c('RPS', 'Acid', 'ZnCu','RCS', 'Bglu'))
+to_conts$treatment <- fct_recode(to_conts$treatment, RPS='RPS', FAM='Acid', RCS='RCS')
 
 to_conts %>% write_tsv('./output/PERMANOVAs_vs_control.tsv')
 
 to_conts <- read_tsv('./output/PERMANOVAs_vs_control.tsv') %>% 
-  mutate(treatment = factor(treatment, levels = c('Control', 'RPS', 'Acid', 'RCS')), 
+  mutate(treatment = factor(treatment, levels = c('CON', 'RPS', 'FAM', 'RCS')), 
          daynum=as.numeric(sub('D', '', day)))
 ######## FIGURE 4 ##########
 
@@ -799,8 +809,54 @@ FIG4B <- shanfig1
 
 rank_names(FS12b)
 # NEED TO SET FACTOR LEVELS FOR TREATMENTS
-FS12b@sam_data$treatment
+FS12b@sam_data$treatment <- factor(FS12b@sam_data$treatment, levels = c('CON', 'RPS', 'FAM', 'RCS'))
 FS12b@sam_data$day
+
+DESeq_difabund <- 
+  function(phyloseq, day, tissue, scientific = TRUE, shrink_type='normal',
+         alpha=0.1, cooks_cut=FALSE, pAdjustMethod='BH'){
+  
+  # FS12b.glom <- tax_glom(FS12b, taxrank = 'Genus')
+  FS12b.glom <- prune_samples(x = phyloseq, samples = phyloseq@sam_data$day == day & phyloseq@sam_data$tissue == tissue)
+  FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
+  FS12.de <- phyloseq_to_deseq2(FS12b.glom, ~treatment)
+  FS12.de <- DESeq(FS12.de, test = 'Wald', fitType = 'parametric')
+  
+  finres <- list()
+  resind <- 1
+  for (i in 2:length(resultsNames(FS12.de))){
+    print(resultsNames(FS12.de)[i])
+    treat <- sub('treatment_(.*)_vs_CON','\\1',resultsNames(FS12.de)[i])
+    comp <- sub('treatment_', '', resultsNames(FS12.de)[i])
+    res <- results(object = FS12.de, name = resultsNames(FS12.de)[i], alpha=alpha, cooksCutoff = cooks_cut, pAdjustMethod = pAdjustMethod)
+    res <- lfcShrink(FS12.de, coef = resultsNames(FS12.de)[i], type = shrink_type)
+    sigtab = res[which(res$padj < alpha), ]
+    
+    if (nrow(sigtab) != 0){
+      # browser()
+      sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(FS12b.glom)[rownames(sigtab), ], "matrix"))
+      sigtab$newp <- format(round(sigtab$padj, digits = 3), scientific = scientific)
+      sigtab$Treatment <- ifelse(sigtab$log2FoldChange >=0, treat, paste('down',treat, sep = '_'))
+      sigtab$OTU <- rownames(sigtab)
+      sigtab$tissue <- tissue
+      sigtab$day <- day
+      sigtab$comp <- comp
+      finres[[resind]] <- sigtab
+      
+      resind <- resind + 1
+    }
+    
+    
+    
+  }
+  
+  finres <- bind_rows(finres)
+  return(finres)
+  
+}
+
+
+
 tocont <- list(DESeq_difabund(phyloseq = FS12b, day = 'D0', tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
                # DESeq_difabund(phyloseq = FS12b, day = 'D0', tissue = 'Q', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
                DESeq_difabund(phyloseq = FS12b, day = 'D2', tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
@@ -828,18 +884,18 @@ tocont <- list(DESeq_difabund(phyloseq = FS12b, day = 'D0', tissue = 'F', scient
 tocont <- bind_rows(tocont) %>% write_tsv('./output/unfiltered_DESEQ.tsv')
 tocontf <- tocont[abs(tocont$log2FoldChange) > .5,]
 
-tocontf %>% 
- ggplot(aes(x=Family, y=log2FoldChange, fill=Treatment)) + 
- geom_point(shape=21) + coord_flip() 
-
-
-tocontf %>% filter(Treatment !='RPS') %>% 
-  ggplot(aes(x=Genus, y=log2FoldChange, fill=Treatment)) + 
-  geom_point(shape=21) + coord_flip()
-
-
-ALSO_ENRICHED_IN_OTHERS <- tocontf %>% filter(Treatment !='RPS') %>% pull(OTU) %>% unique()
-
+# tocontf %>% 
+#  ggplot(aes(x=Family, y=log2FoldChange, fill=Treatment)) + 
+#  geom_point(shape=21) + coord_flip() 
+# 
+# 
+# tocontf %>% filter(Treatment !='RPS') %>% 
+#   ggplot(aes(x=Genus, y=log2FoldChange, fill=Treatment)) + 
+#   geom_point(shape=21) + coord_flip()
+# 
+# 
+# ALSO_ENRICHED_IN_OTHERS <- tocontf %>% filter(Treatment !='RPS') %>% pull(OTU) %>% unique()
+# 
 
 # meanOTUbmeans <- 
 #   tocontf %>% group_by(OTU) %>% 
@@ -863,6 +919,7 @@ tocontf %>% write_tsv('./output/Control_vs_All_DESeq.tsv')
 tocontf <- read_tsv('./output/Control_vs_All_DESeq.tsv') %>% 
   mutate(day=factor(day, levels = c('D0', 'D2', 'D7', 'D14', 'D21')))
 
+tocontf$Treatment
 
 #tocontf %>% write_tsv('./figdat/diffabund_OTUS.tsv')
 
@@ -906,7 +963,7 @@ FIG4C <-
   filter(log2FoldChange > 0) %>%
   mutate(Order=fct_infreq(Order),
          Order=fct_lump_n(Order, 8, ties.method = 'first')) %>% #pull(Order) %>% levels()
-  mutate(comp = factor(comp, levels = c('RPS_vs_Control', 'Acid_vs_Control', 'RCS_vs_Control'))) %>% 
+  mutate(comp = factor(comp, levels = c('RPS_vs_CON', 'FAM_vs_CON', 'RCS_vs_CON'))) %>% 
   group_by(comp, Order) %>%
   tally() %>% 
   ggplot(aes(x=comp, y=n, fill=Order)) +
@@ -1101,7 +1158,7 @@ RPS_sigOTUs <-
 
 
 RPS_CONTROLpsmelt <- 
-  prune_samples(FS12b@sam_data$treatment %in% c('Control', 'RPS'), FS12b) %>% 
+  prune_samples(FS12b@sam_data$treatment %in% c('CON', 'RPS'), FS12b) %>% 
   rarefy_even_depth() %>% 
   psmelt()
 
@@ -1167,8 +1224,8 @@ FIG5 <-
 
 FIG5
 ggsave(filename = './output/figure5.jpeg', plot = FIG5, device = 'jpeg', 
-       width = 280, 
-       height=200, units = 'mm', 
+       width = 310, 
+       height=250, units = 'mm', 
        scale = 1.2, 
        bg='white')
 

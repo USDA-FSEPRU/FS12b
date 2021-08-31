@@ -2,15 +2,16 @@
 library(tidyverse)
 library(cowplot)
 library(broom)
+library(forcats)
 theme_set(theme_cowplot())
 
-vfas <- read_tsv('./data/FS12b_meta.tsv')
 
+vfas <- read_csv('./data/FS12b_vfas.csv') %>% 
+  mutate(treatment=fct_recode(treatment, CON='Control', RPS='RPS', FAM='Acid', RCS='RCS'), 
+         treatment=factor(treatment, levels=c('CON', 'RPS', 'FAM', 'RCS')))
 
-colnames(vfas)
-vfas <- read_csv('./data/FS12b_vfas.csv')
-vfas <- vfas %>% filter(treatment %in% c('Control', 'RPS', 'Acid','RCS'))
-vfas$treatment <- factor(vfas$treatment, levels = c('Control', 'RPS', 'Acid', 'Zn+Cu', 'RCS', 'Bglu'))
+vfas <- vfas %>% filter(treatment %in% c('CON', 'RPS', 'FAM','RCS'))
+vfas$treatment
 
 vfas.gather <- vfas %>% gather(key = VFA, value = mM, -(pignum:hour))
 
@@ -37,7 +38,7 @@ scfa_means <-
   emmeans(val_test, specs =  ~ treatment) %>% tidy(conf.int=TRUE) %>% mutate(scfa='valerate'),
   emmeans(cap_test, specs =  ~ treatment) %>% tidy(conf.int=TRUE) %>% mutate(scfa='caproate'),
   emmeans(suc_test, specs =  ~ treatment) %>% tidy(conf.int=TRUE) %>% mutate(scfa='succinate'))) %>% 
-  mutate(treatment=factor(treatment, levels = c('Control', 'RPS', 'Acid', 'RCS')), 
+  mutate(treatment=factor(treatment, levels = c('CON', 'RPS', 'FAM', 'RCS')), 
          scfa=factor(scfa, levels = c('butyrate', 'valerate', 'caproate', 'succinate')))
 
 # summary(but_test)
@@ -52,12 +53,12 @@ TukeyHSD(val_test) %>% tidy()%>% mutate(scfa='valerate'),
 TukeyHSD(cap_test) %>% tidy()%>% mutate(scfa='caproate'),
 TukeyHSD(suc_test) %>% tidy()%>% mutate(scfa='succinate')
 )) %>% 
-  filter(contrast %in% c('RCS-Control', 
-                         'Acid-Control', 
-                         'RPS-Control')) %>% 
-  mutate(contrast=factor(contrast, levels=c('RCS-Control', 
-                                            'Acid-Control', 
-                                            'RPS-Control')),
+  filter(contrast %in% c('RCS-CON', 
+                         'FAM-CON', 
+                         'RPS-CON')) %>% 
+  mutate(contrast=factor(contrast, levels=c('RCS-CON', 
+                                            'FAM-CON', 
+                                            'RPS-CON')),
          scfa=factor(scfa, levels = c('butyrate', 'caproate', 'valerate', 'succinate'))) %>% 
   mutate(p.plot=ifelse(adj.p.value < 0.05, adj.p.value, NA))
 
@@ -79,7 +80,7 @@ FIG6A
 FIG6B <- 
   scfa_tests %>%
   mutate(scfa=factor(scfa, levels = c('butyrate', 'valerate', 'caproate', 'succinate'))) %>% 
-  filter(grepl('Control', contrast)) %>% 
+  filter(grepl('CON', contrast)) %>% 
   ggplot(aes(x=contrast, y=estimate, ymin=conf.low, ymax=conf.high)) +
   geom_hline(yintercept = 0)+
   geom_pointrange(aes(color=contrast), size=1.5, fatten = .5) +
@@ -113,7 +114,8 @@ ggdraw() +
 MET <- read_tsv('./data/FS12b_meta.tsv') %>%
   mutate(ID=sample_ID) %>%
   select(ID, everything()) %>% 
-  mutate(treatment=factor(treatment, levels = c('Control', 'RPS', 'Acid', 'RCS')))
+  mutate(treatment=fct_recode(treatment, CON='Control', RPS='RPS', FAM='Acid', RCS='RCS'), 
+         treatment=factor(treatment, levels = c('CON', 'RPS', 'FAM', 'RCS')))
 
 
 RPS_cec_scfas <- 
@@ -249,7 +251,7 @@ TST <-
 
 TST 
 
-ggsave('./output/figure_S2.jpg', height = 5, width = 7, units = 'in')
+ggsave('./output/figure_S2.jpg', height = 5, width = 7, units = 'in', bg='white')
 # #########
 # 
 # filter(vfas.gather, hour == 0 ) %>% 

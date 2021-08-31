@@ -1,15 +1,25 @@
 library(cowplot)
 library(tidyverse)
-pens <- read_csv('FS12_all_treatments.csv') %>% select(pen, treatment) %>% unique() %>% arrange(pen)
+library(forcats)
+
+pens <- read_csv('FS12_all_treatments.csv') %>% 
+  select(pen, treatment) %>%
+  unique() %>%
+  arrange(pen) %>% #pull(treatment) %>% unique()
+  mutate(treatment=case_when(
+    treatment == 'Control'  ~ 'CON', 
+    treatment == 'Acid'     ~ 'FAM', 
+    TRUE                    ~ treatment
+  ))
 
 unique(pens$treatment)
 
 pens <- 
   pens %>%
-  mutate(treatment=ifelse(treatment %in% c('Control', 'RPS', 'Acid', 'RCS'), treatment, 'other'), 
+  mutate(treatment=ifelse(treatment %in% c('CON', 'RPS', 'FAM', 'RCS'), treatment, 'other'), 
          xpos=rep(c(1,2,3,4,5,6,7,8), each=12), 
          ypos=rep(c(1,2,3,4,5,6,7,8,9,10,11,12), times=8), 
-         treatment = factor(treatment ,levels = c('Control', 'RPS', 'Acid', 'RCS', 'other')))
+         treatment = factor(treatment ,levels = c('CON', 'RPS', 'FAM', 'RCS', 'other')))
 
 
 pens %>% mutate(cohort=ifelse(treatment != 'other', TRUE, FALSE))
@@ -56,7 +66,7 @@ room_tibble <-
     room=c(1:4), 
     xpos=c(0,2,4,6), 
     ypos=c(0,0,0,0), 
-    treatment = factor(c('Control', 'RPS', 'Acid', 'RCS') ,levels = c('Control', 'RPS', 'Acid', 'RCS'))
+    treatment = factor(c('CON', 'RPS', 'FAM', 'RCS') ,levels = c('CON', 'RPS', 'FAM', 'RCS'))
   )
 
 room_tibble
@@ -80,8 +90,8 @@ p2 <-
   geom_tile(data=room_tibble, aes(x=xpos, y=ypos, fill=treatment),color='black', width=1.5, height=.8, size=1)+
   geom_point(aes(x=xpos, y=ypos,fill=treatment), shape=24, size=3, stroke=1) +
   geom_text(data = room_tibble, aes(label=treatment, y=ypos, x=xpos), size=5)+
-  annotate(geom='text', x=3, y=.6,size=5, label='One pig per pen from each treatment transfered to isolation rooms')+
-  annotate(geom='richtext', x=3, y=.5,size=5, label='Challenged with 8e7 CFU <i>S. enterica</i> strain SX240', fill = NA, label.color = NA,)+
+  annotate(geom='text', x=3, y=.6,size=5, label='One pig per pen from each treatment transferred to isolation rooms')+
+  annotate(geom='richtext', x=3, y=.5,size=5, label='Challenged with 8 x 10<sup>7</sup> CFU <i>S. enterica</i> I 4,[5],12:i:- strain SX 240', fill = NA, label.color = NA,)+
   annotate(geom='text', x=3, y=-.5,size=5, label='Feces collected at 0, 2, 7, 14, and 21 dpi')+
   annotate(geom='text', x=3, y=-.6,size=5, label='Necropsies performed at 21 dpi')+
   
@@ -95,8 +105,7 @@ p2 <-
   # xlim(-1,7)+
   # ylim(-1,1) +
 p2
-# label="P(italic(i))==8~italic(i)", parse=TRUE
-
+# 
 
 
 mfig <- ggdraw()+
@@ -115,5 +124,6 @@ ggsave(mfig,
        height = 180,
        device = 'jpeg',
        dpi = 300,
-       units = 'mm')
+       units = 'mm', 
+       bg='white')
 
