@@ -3,6 +3,7 @@ library(tidyverse)
 library(Hmisc)
 library(tidyverse)
 library(cowplot)
+library(forcats)
 theme_set(theme_cowplot())
 # Read in data
 
@@ -10,13 +11,13 @@ sal_data <- read_csv('./data/FS12b_salmonella_data.csv')
 
 # orders the treatment factors and makes a timepoint factor for plotting ease
 
-sal_data$treatment <- factor(sal_data$treatment, levels = c('control', 'RPS', 'Acid', 'Zn+Cu', 'RCS', 'Bglu'))
+sal_data$treatment <- fct_recode(sal_data$treatment, CON='control', RPS='RPS', FAM='Acid', RCS='RCS')
 
-sal_data$treatXtime <- factor(sal_data$treatXtime, levels = c('control_0', 'RPS_0', 'Acid_0', 'Zn+Cu_0', 'RCS_0', 'Bglu_0',
-                                                              'control_2', 'RPS_2', 'Acid_2', 'Zn+Cu_2', 'RCS_2', 'Bglu_2',
-                                                              'control_7', 'RPS_7', 'Acid_7', 'Zn+Cu_7', 'RCS_7', 'Bglu_7',
-                                                              'control_14', 'RPS_14', 'Acid_14', 'Zn+Cu_14', 'RCS_14', 'Bglu_14',
-                                                              'control_21', 'RPS_21', 'Acid_21', 'Zn+Cu_21', 'RCS_21', 'Bglu_21'))
+# sal_data$treatXtime <- factor(sal_data$treatXtime, levels = c('CON_0', 'RPS_0', 'FAM_0', 'Zn+Cu_0', 'RCS_0', 'Bglu_0',
+#                                                               'CON_2', 'RPS_2', 'FAM_2', 'Zn+Cu_2', 'RCS_2', 'Bglu_2',
+#                                                               'CON_7', 'RPS_7', 'FAM_7', 'Zn+Cu_7', 'RCS_7', 'Bglu_7',
+#                                                               'CON_14', 'RPS_14', 'FAM_14', 'Zn+Cu_14', 'RCS_14', 'Bglu_14',
+#                                                               'CON_21', 'RPS_21', 'FAM_21', 'Zn+Cu_21', 'RCS_21', 'Bglu_21'))
 
 sal_data$time_point_fact <- factor(sal_data$time_point)
 # sal_data$time_point
@@ -27,7 +28,7 @@ sal_data <- sal_data %>% filter(!(treatment %in% c('Zn+Cu', 'Bglu')) & pignum !=
 
 
 
-all_daily <- sal_data %>% filter(pignum != 101) %>% group_by(time_point, treatment) %>%
+all_daily <- sal_data %>% group_by(time_point, treatment) %>%
   summarise(mean_sal=mean(log_sal),
             sd_sal=sd(log_sal),
             num=n(),
@@ -140,12 +141,14 @@ sal_no0 <-
   sal_data %>%
   filter(time_point != 0) %>% 
   mutate(pignum=factor(pignum), 
-         treatment=factor(treatment, levels = c('control', 'RPS', 'Acid', 'RCS')))
+         treatment=factor(treatment, levels = c('CON', 'RPS', 'FAM', 'RCS')))
 
 glimpse(sal_no0)
 fit_interact   <- lmer(log_sal ~ time_point_fact * treatment + (1|pignum) , data=sal_no0)      # time is factor
 fit_nointeract <- lmer(log_sal ~ time_point_fact + treatment + (1|pignum) , data=sal_no0)      # time is factor
 
+
+summary(fit_interact)
 # 
 # AIC(fit_interact, fit_nointeract)
 # anova(fit_interact, fit_nointeract)
@@ -166,7 +169,7 @@ contrast.emm <-
   contrast(method='revpairwise') %>%
   tidy(conf.int=TRUE) %>% 
   mutate(day=factor(time_point_fact, levels = c('0','2', '7', '14', '21')), 
-         contrast=factor(contrast, levels = c('RCS - control', 'Acid - control','RPS - control' ))) 
+         contrast=factor(contrast, levels = c('RCS - CON', 'FAM - CON','RPS - CON' ))) 
 
 means.emm <-
   emmeans(fit_interact, ~ treatment | time_point_fact) %>%
@@ -174,48 +177,51 @@ means.emm <-
   mutate(day=factor(time_point_fact, levels = c('0','2', '7', '14', '21'))) %>% 
   select(-time_point_fact)
 
-D0s <- tibble(treatment=c('control', 'RPS', 'Acid', 'RCS'), 
-              estimate=0, df=126, conf.low=0, conf.high=0, statistic=0, p.value=0, 
+D0s <- tibble(treatment=c('CON', 'RPS', 'FAM', 'RCS'), 
+              estimate=0,std.error = 1, df=126, conf.low=0, conf.high=0, statistic=0, p.value=0, 
               day=factor(c('0','0','0','0'), levels=c('0', '2', '7', '14', '21')))
 tes <- rbind(D0s, means.emm)
 
 
 
-F1A <- 
+F2A <- 
 rbind(D0s, means.emm) %>% 
-  mutate(treatment=factor(treatment, levels = c('control', 'RPS', 'Acid', 'RCS')), 
+  mutate(treatment=factor(treatment, levels = c('CON', 'RPS', 'FAM', 'RCS')), 
          daynum=as.numeric(as.character(day))) %>% 
   ggplot(aes(x=daynum, y=estimate, color=treatment, group=treatment)) + geom_point()+
   geom_line(size=1.75)+
-  geom_errorbar(aes(ymin=conf.low, ymax=conf.high), color='black', width=.2)+
-  geom_point(aes(fill=treatment),size=3, shape=21, color='black') +
+  geom_errorbar(aes(ymin=conf.low, ymax=conf.high),position = position_jitter(width = .2, seed=2), color='black', width=.2)+
+  geom_point(aes(fill=treatment),position = position_jitter(width = .2, seed=2), size=3, shape=21, color='black') +
   scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple'))+
   scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
-  ylab('log(CFU) Salmonella/g feces') + 
-  xlab('Days post infection') + 
-  theme(legend.position = 'top')
+  # ylab('log(CFU) Salmonella/g feces') +
+  ylab(expression("log(CFU) "~italic("Salmonella")~"/gram feces"))+
+  xlab('Days post inoculation') + 
+  theme(legend.position = 'top',panel.grid.major = element_line(color='grey75'))
 
-F1A
+F2A
 
-F1B <- 
+F2B <- 
   contrast.emm %>%
   mutate(p.plot=ifelse(adj.p.value < 0.05, adj.p.value, NA), 
-         p.plot=round(p.plot, digits = 2)) %>% 
-    filter(grepl('control', contrast)) %>% 
+         p.plot=round(p.plot, digits = 2), 
+         day2=factor(paste(day, 'dpi'),levels = c('2 dpi', '7 dpi', '14 dpi', '21 dpi')))%>% 
+    filter(grepl('CON', contrast)) %>% 
     ggplot(aes(x=contrast, y=estimate, color=contrast))+
-    geom_point() +
     geom_hline(yintercept = 0)+
-    geom_pointrange(aes(ymin=conf.low, ymax=conf.high)) +
-    geom_text(aes(label=p.plot), nudge_x = .2)+
+    geom_pointrange(aes(ymin=conf.low, ymax=conf.high), size=1.5, fatten = .5) +
+    geom_point(aes(fill=contrast), shape=21, size=4, color='black') +
+    geom_text(aes(label=p.plot), nudge_x = .2, fontface='bold')+
     coord_flip()+ 
-    facet_wrap(~day, nrow = 1)+
+    facet_wrap(~day2, nrow = 1)+
     scale_color_manual(values=c('red','orange','#3399FF'))  + 
-    theme(legend.position = 'none')
+    scale_fill_manual(values=c('red','orange','#3399FF'))  + 
+    theme(legend.position = 'none',
+          panel.grid.major = element_line(color='grey85'),
+          panel.border = element_rect(color='black', size = 1.25)) +
+    ylab('Estimated difference from control -- log(CFUs)')
 
-F1B
-
-#### TISSUES ###
-
+F2B
 
 
 # AULC
@@ -233,10 +239,12 @@ sum_sal <- sum_sal[match(filter(sal_data, time_point==2)$pignum,sum_sal$pignum),
 
 
 
-sum_sal$treatment <- factor(sum_sal$treatment, levels = c('control', 'RPS', 'Acid', 'Zn+Cu', 'RCS', 'Bglu'))
+sum_sal$treatment <- factor(sum_sal$treatment, levels = c('CON', 'RPS', 'FAM', 'Zn+Cu', 'RCS', 'Bglu'))
+
+filter(sum_sal, pignum !=101) %>% write_tsv('./data/sal_summary.tsv')
 
 
-F1C <- filter(sum_sal, pignum !=101) %>% 
+F2C <- filter(sum_sal, pignum !=101) %>% 
   ggplot(aes(x=treatment, y=AULC, fill=treatment))+
   geom_boxplot(outlier.alpha = 0) + 
   # geom_text(aes(label=pignum))+
@@ -249,7 +257,11 @@ F1C <- filter(sum_sal, pignum !=101) %>%
         panel.grid.major = element_line(color='grey'))
 
 
-F1C
+F2C
+
+
+
+
 
 
 ### USE THIS FOR AULC STAT TEST ###
@@ -258,25 +270,30 @@ summary(aov_AULC)
 
 AULC_tuk <- TukeyHSD(aov_AULC) %>% tidy()
 
-F1D <- AULC_tuk %>% filter(grepl('control', contrast)) %>% 
-  mutate(contrast=factor(contrast, levels = c('RCS-control', 'Acid-control','RPS-control'))) %>%
+F2D <- AULC_tuk %>% filter(grepl('CON', contrast)) %>% 
+  mutate(contrast=factor(contrast, levels = c('RCS-CON', 'FAM-CON','RPS-CON'))) %>%
   ggplot(aes(x=contrast, y=estimate, ymin=conf.low, ymax=conf.high,color=contrast)) +
   geom_hline(yintercept = 0, color='grey') +
-  geom_pointrange(size=.75) +
+  geom_pointrange(size=1.3, fatten = .5) +
+  geom_point(aes(fill=contrast), shape=21, color='black', size=3.5)+
   geom_text(aes(x=contrast,y=8,
                 label=paste('P=', round(adj.p.value, 2))), 
-            hjust=0) +
+            hjust=0, fontface='bold') +
   ggtitle('ANOVA P = 0.012') + 
   ylim(-32,32)+
+  ylab('Estimated difference from control -- AULC')+
   # scale_y_continuous(expand = expand_scale(add = c(5,15)))+
   theme(panel.border = element_rect(color='black', fill=NA), 
         legend.position='none', 
         axis.title.y = element_blank(), 
         axis.text = element_text(size=10), 
-        panel.grid.major.x = element_line(color='grey', size=.2))+
+        panel.grid.major.x = element_line(color='grey', size=.2), 
+        axis.title.x = element_text(size=12))+
   coord_flip() +
-  scale_color_manual(values=c('red','orange','#3399FF')) 
-F1D
+  scale_color_manual(values=c('red','orange','#3399FF')) +
+  scale_fill_manual(values=c('red','orange','#3399FF')) 
+
+F2D
 # 
 # sample(2:50, size = length(sal_no0$Salmonella[sal_no0$Salmonella == 50]), replace = TRUE)
 # 
@@ -314,7 +331,8 @@ tis <- na.exclude(tis)
 
 tis <- tis %>% filter(!treatment %in% c('Zn+Cu', 'Bglu'))
 
-tis$treatment <- factor(tis$treatment, levels = c('control', 'RPS', 'Acid', 'RCS'))
+tis$treatment <- fct_recode(tis$treatment, CON='control', RPS='RPS', FAM='Acid', RCS='RCS') %>% 
+  factor(., levels = c('CON', 'RPS', 'FAM', 'RCS'))
 
 
 
@@ -322,12 +340,12 @@ tis$treatment <- factor(tis$treatment, levels = c('control', 'RPS', 'Acid', 'RCS
 sal_tis21 <- 
   tis %>%
   mutate(pignum=factor(pignum), 
-         treatment=factor(treatment, levels = c('control', 'RPS', 'Acid', 'RCS')))
+         treatment=factor(treatment, levels = c('CON', 'RPS', 'FAM', 'RCS')))
 
 glimpse(sal_tis21)
 
-fit_interact   <- lmer(log_sal ~ tissue * treatment + (1|pignum) , data=sal_tis21)      # time is factor
-
+fit_interact   <- lmer(log_sal ~ tissue * treatment + (1|pignum) , data=sal_tis21)      # 
+summary(fit_interact)
 
 
 ### REPLACE FIG3 (TISSUE SHEDDING) WITH THESE
@@ -335,8 +353,8 @@ contrast.emm <-
   emmeans(fit_interact, ~ treatment | tissue) %>%
   contrast(method='revpairwise') %>%
   tidy(conf.int=TRUE) %>% 
-  filter(grepl('control', contrast)) %>% 
-  mutate(contrast=factor(contrast, levels = c('RCS - control', 'Acid - control','RPS - control' ))) 
+  filter(grepl('CON', contrast)) %>% 
+  mutate(contrast=factor(contrast, levels = c('RCS - CON', 'FAM - CON','RPS - CON' ))) 
 
 means.emm <-
   emmeans(fit_interact, ~ treatment | tissue) %>%
@@ -406,16 +424,17 @@ tissum %>% filter(tissue=='cecal_cont')
 # 
 
 ### Figure 3A
-F2A <- means.emm %>%
-  mutate(treatment=factor(treatment, levels = c('control', 'RPS', 'Acid', 'RCS')), 
-         conf.low=ifelse(conf.low<0, 0, conf.low)) %>% 
+F3A <- means.emm %>%
+  mutate(treatment=factor(treatment, levels = c('CON', 'RPS', 'FAM', 'RCS')), 
+         conf.low=ifelse(conf.low<0, 0, conf.low), 
+         tissue2=ifelse(tissue == 'cecal_cont', 'Cecal Cont.', tissue)) %>% 
   ggplot(aes(x=treatment, y=estimate, fill=treatment, group=treatment)) +
   # geom_jitter(aes(x=time_point, y=log_sal, color=treatment), data=filter(sal_data, !(treatment %in% c('Zn+Cu', 'Bglu'))& pignum !=101), alpha=.5) + 
   geom_col(aes(fill=treatment), size=1.5)+
   geom_errorbar(aes(ymin=conf.low,ymax=conf.high), width=.2) +
   scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
   scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) +
-  ylab('log CFU / g tissue') +
+  ylab(expression("log(CFU) "~italic("Salmonella")~"/gram tissue"))+
   theme(panel.border = element_rect(color = 'black', fill = NA), 
         axis.text.x = element_text(angle = -45, hjust = 0), 
         axis.title.x = element_blank(), 
@@ -423,33 +442,37 @@ F2A <- means.emm %>%
         axis.title.y = element_text(size = 11), 
         panel.grid.major = element_line(color='grey', size=.25))+
   # ggtitle('tissue colonization') +
-  facet_wrap(~tissue, ncol = 5)
+  facet_wrap(~tissue2, ncol = 5)
 
 
-F2A
+F3A
 
 
 
 #
 # Figure 3B
 
-F2B <- contrast.emm %>%
-  mutate(p.plot =ifelse(adj.p.value < 0.05, adj.p.value, NA)) %>% 
+F3B <- contrast.emm %>%
+  mutate(p.plot =ifelse(adj.p.value <= 0.05, adj.p.value, NA), 
+         tissue2=ifelse(tissue == 'cecal_cont', 'Cecal Cont.', tissue)) %>% 
   ggplot(aes(x=contrast, y=estimate, ymin=conf.low, ymax=conf.high, color=contrast)) +
-  geom_hline(yintercept = 0, color='grey')+
-  geom_pointrange(size=.5) + 
-  geom_text(aes(label=round(p.plot, digits = 4)), nudge_x = .2)+
+  geom_hline(yintercept = 0, color='black')+
+  geom_pointrange(size=1, fatten = .5) +
+  geom_point(aes(fill=contrast), color='black', shape=21, size=3)+
+  geom_text(aes(label=round(p.plot, digits = 4)), fontface='bold', nudge_x = .2)+
   coord_flip() + 
-  facet_wrap(.~tissue, ncol = 5) +
+  facet_wrap(.~tissue2, ncol = 5) +
   ylim(-3.5,3.5) + 
   scale_color_manual(values=c('red','orange','#3399FF')) +
+  scale_fill_manual(values=c('red','orange','#3399FF')) +
   theme(panel.border = element_rect(colour = "black", fill=NA, size=1), 
         axis.title.y=element_blank(), 
         legend.position = 'none', 
-        panel.grid.major = element_line(color='grey', size=.25))
+        panel.grid.major = element_line(color='grey', size=.25)) + 
+  ylab('Estimated difference from control -- log(CFUs)')
 
 
-F2B
+F3B
 
 ### COWPLOT ZONE ###
 
@@ -459,25 +482,26 @@ F2B
 # F1B
 
 
-fig_1 <- ggdraw()+
-  draw_plot(F1A, 0,.45,.6,.55)+
-  draw_plot(F1B, 0,0,.6,.45)+
-  draw_plot(F1C, .6,.5,.4,.5)+
-  draw_plot(F1D, .6,0,.4,.5)+
+fig_2 <- ggdraw()+
+  draw_plot(F2A, 0,.45,.6,.55)+
+  draw_plot(F2B, 0,0,.6,.45)+
+  draw_plot(F2C, .6,.5,.4,.5)+
+  draw_plot(F2D, .6,0,.4,.5)+
   draw_plot_label(x=c(0,0,.6,.6), y=c(1,.45, 1,.5), label = c('A', 'B','C', 'D'))
-fig_1
+fig_2
 
 
-ggsave(fig_1,
-       filename = './output/figure1.jpeg',
-       width = 250,
+ggsave(fig_2,
+       filename = './output/figure2.jpeg',
+       width = 270,
        height = 190,
        device = 'jpeg',
        dpi = 300,
-       units = 'mm')
+       units = 'mm', 
+       bg='white')
 
 
-# Figure 2
+# Figure 3
 
 # F2A
 # F2B
@@ -506,20 +530,21 @@ ggsave(fig_1,
 # F3B
 
 
-fig_2 <- ggdraw()+
-  draw_plot(F2A, 0,.5,1,.5)+
-  draw_plot(F2B, 0,0,1,.5)+
+fig_3 <- ggdraw()+
+  draw_plot(F3A, 0,.45,1,.55)+
+  draw_plot(F3B, 0,0,1,.45)+
   draw_plot_label(x=c(0,0), y=c(1,.5), label = c('A', 'B'))
-fig_2
+fig_3
 
 
-ggsave(fig_2,
-       filename = './output/figure2.jpeg',
+ggsave(fig_3,
+       filename = './output/figure3.jpeg',
        width = 180,
        height = 150,
        device = 'jpeg',
        dpi = 300,
-       units = 'mm')
+       units = 'mm', 
+       bg='white')
 
 
 

@@ -1,15 +1,79 @@
 ########## HIGH LOW TO CONT ##########
+library(phyloseq)
+library(vegan)
+library(tidyverse)
+library(funfuns)
+library(cowplot)
+
+
+shed_data <- 
+  read_tsv('./data/sal_summary.tsv') %>% 
+  mutate(shedding=ifelse(pignum %in% c(373,321,181,392,97), 'RPS low', 
+         ifelse(pignum %in% c(50, 93,355, 244), 'RPS high', 'CON')), 
+         treatment=ifelse(treatment == 'control', 'CON', treatment)) %>% 
+  filter(treatment %in% c('CON', 'RPS'))
+
+# pbuild <- ggplot_build(p1)
+
+# pbuild$data
+
+my_cols <- c(`RPS low`='#377EB8', `RPS high`='#E41A1C', CON='#4DAF4A')
+#4DAF4A green
+#E41A1C red
+#377EB8 blue
+
+p1 <- shed_data %>%
+  ggplot(aes(x=treatment, y=AULC)) +
+  geom_boxplot() +
+  geom_jitter(aes(fill=shedding), width=.2, size=3, shape=21) + 
+  # scale_fill_brewer(palette = 'Set1') + 
+  scale_fill_manual(values = my_cols) + 
+  theme_cowplot() + 
+  xlab('')+
+  theme(legend.title = element_blank())
+
+
+
+OTU <- phyloseq::import_mothur(mothur_shared_file = './data/FS12b.shared') %>% t()
+
+TAX <- phyloseq::import_mothur(mothur_constaxonomy_file = './data/FS12b_OTU.taxonomy')
+colnames(TAX) <- c('Domain', 'Phylum', 'Class', 'Order', 'Family' , 'Genus' )
+
+# 
+# TAX <- 
+#   read_tsv('./raw_data/NEW_MOTHUR_OUT/FS12b_OTU.taxonomy') %>%
+#   column_to_rownames(var = 'OTU') %>%
+#   as.matrix() %>% 
+#   tax_table()
+
+MET <- read_tsv('./data/FS12b_meta.tsv') %>%
+  mutate(ID=sample_ID) %>%
+  select(ID, everything()) %>%
+  mutate(treatment=case_when(
+    treatment == 'Control' ~ 'CON', 
+    treatment == 'Acid'    ~ 'FAM', 
+    TRUE                   ~ treatment
+  )) %>% 
+  mutate(treatment=factor(treatment, levels = c('CON', 'RPS', 'FAM', 'RCS'))) %>% 
+  column_to_rownames(var='sample_ID') %>% 
+  sample_data()
+
+
+FS12b <- phyloseq(MET, TAX, OTU)
+
+
+
 
 ##SHOULD ORDINATE THIS TOO##
 
 # FS12b_HL <- FS12b %>% subset_samples(treatment %in% c('Control', 'RPS') & tissue =='F')
-FS12b_HL <- FS12b %>% subset_samples(treatment %in% c('Control', 'RPS'))
+FS12b_HL <- FS12b %>% subset_samples(treatment %in% c('CON', 'RPS'))
 
 # FS12b_HL %>% subset_samples(treatment == 'RPS') %>% sample_data() %>% select(pignum)
 
 
-FS12b_HL@sam_data$shed <- ifelse(FS12b_HL@sam_data$pignum %in% c(373,321,181,392,97), 'low', 
-                                 ifelse(FS12b_HL@sam_data$pignum %in% c(50, 93,355, 244), 'high', 'Control'))
+FS12b_HL@sam_data$shed <- ifelse(FS12b_HL@sam_data$pignum %in% c(373,321,181,392,97), 'RPS low', 
+                                 ifelse(FS12b_HL@sam_data$pignum %in% c(50, 93,355, 244), 'RPS high', 'CON'))
 
 FS12b_HL@sam_data$set <- paste(FS12b_HL@sam_data$day, FS12b_HL@sam_data$tissue, FS12b_HL@sam_data$shed, sep = '_')
 
@@ -61,12 +125,13 @@ fin$pairs <- gsub('_Q_', ' tet ', fin$pairs)
 fin <- fin[grep('.* (.*) .* vs .* \\1 .*', fin$pairs),]
 
 
-to_conts <- fin[grep('Control', fin$pairs),]
+to_conts <- fin[grep('CON', fin$pairs),]
 
-not_conts <- fin[-grep('Control', fin$pairs),]
+not_conts <- fin[-grep('CON', fin$pairs),]
 
 to_conts$tissue <- gsub('D[0-9]+ (.*) ([A-Za-z_]+) vs D[0-9]+ .* ([A-Za-z]+)', '\\1', to_conts$pairs)
-to_conts$treatment <- gsub('D[0-9]+ .* ([A-Za-z_]+) vs D[0-9]+ .* ([A-Za-z]+)', '\\2', to_conts$pairs)
+to_conts$treatment <- gsub('D[0-9]+ .* ([A-Za-z_]+) vs D[0-9]+ .* ([A-Za-z]+)', '\\2', to_conts$pairs) %>% 
+  paste('RPS', .)
 
 
 to_conts$p.fdr <- p.adjust(to_conts$p.value, method = 'fdr')
@@ -78,24 +143,59 @@ to_conts$p.fdr.lab <- ifelse(to_conts$p.fdr < 0.05, to_conts$p.fdr, NA)
 # to_conts %>% write_tsv('./fig_dat/High_low_PERMANOVA.tsv')
 
 # figure 5ish
-p1 <- to_conts %>% filter(tissue =='feces') %>%  ggplot(aes(x=day, y=F.Model, group=treatment, fill=treatment, color=treatment, label=p.fdr.lab)) +
-  geom_line(size=1.52) + geom_point(shape=21) + scale_color_brewer(palette = 'Set1') + 
-  geom_label(color='black') +
-  scale_fill_brewer(palette = 'Set1') + 
-  ggtitle('Community differences compared to control group over time', subtitle = 'RPS only') + labs(fill='Shedding', 
-                                                                                                     color='Shedding')
+p2 <- to_conts %>% 
+  filter(tissue =='feces') %>% 
+  ggplot(aes(x=day, y=F.Model, group=treatment, fill=treatment, color=treatment, label=p.fdr.lab)) +
+  geom_line(size=1.52) +
+  geom_point(shape=21, show.legend = F) + 
+  scale_color_brewer(palette = 'Set1') + 
+  geom_label(color='black', show.legend = F) +
+  theme_cowplot()+
+  scale_fill_brewer(palette = 'Set1') +
+  theme(legend.title = element_blank())
 
-p1
+p2
 
-to_conts %>% filter(!(tissue %in% c('feces', 'tet'))) %>% 
-  ggplot(aes(x=tissue, y=F.Model, fill=treatment)) +
+p3 <- 
+  to_conts %>%
+  filter(!(tissue %in% c('feces', 'tet', 'il_muc'))) %>% 
+  mutate(tissue2= case_when(
+    tissue == 'cec_cont'    ~ 'Cecal Contents', 
+    tissue == 'cec_muc'     ~ 'Cecal Mucosa'
+  )) %>% 
+  ggplot(aes(x=tissue2, y=F.Model, fill=treatment)) +
   geom_col(position = 'dodge', color='black') + geom_text(aes(label=p.fdr.lab), position=position_dodge(width = 1), vjust=1.5) + 
-  ggtitle('PERMANOVA F.stat. : Difference compared to controls across tissues',
-          subtitle = 'Higher values represent a greater difference compared to control')  + scale_fill_brewer(palette = 'Set1')
+  # ggtitle('PERMANOVA F.stat. : Difference compared to controls across tissues',
+  #         subtitle = 'Higher values represent a greater difference compared to control')  +
+  scale_fill_brewer(palette = 'Set1') + 
+  xlab('')+
+  theme_cowplot() +
+  theme(legend.title = element_blank(), 
+        legend.position = 'top')
+
+
+p3
+
+
+
 
 
 to_conts %>% write_tsv('./output/PERMANOVAs_highlow_vs_control.tsv')
 
+
+
+
+
+### cowplot
+
+fig_S1 <- ggdraw()+
+  draw_plot(p1, 0,.45,.45,.55)+
+  draw_plot(p3, .45,.45,.55,.55)+
+  draw_plot(p2, 0,0,1,.45)+
+  draw_plot_label(x=c(0,0, .45), y=c(1,.45,1), label = c('A', 'B','C'))
+fig_S1
+
+ggsave('output/figureS1.jpeg', height=5, width = 7, units = 'in', bg='white')
 
 ###
 

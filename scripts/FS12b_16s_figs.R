@@ -1,4 +1,3 @@
-## libraries ##
 library(tidyverse)
 library(phyloseq)
 library(vegan)
@@ -6,6 +5,7 @@ library(funfuns)
 library(broom)
 library(DESeq2)
 library(cowplot)
+library(forcats)
 
 
 ## Build phyloseq object ##
@@ -33,7 +33,7 @@ colnames(TAX) <- c('Domain', 'Phylum', 'Class', 'Order', 'Family' , 'Genus' )
 MET <- read_tsv('./data/FS12b_meta.tsv') %>%
   mutate(ID=sample_ID) %>%
   select(ID, everything()) %>% 
-  mutate(treatment=factor(treatment, levels = c('Control', 'RPS', 'Acid', 'RCS'))) %>% 
+  mutate(treatment=fct_recode(treatment, CON='Control', RPS='RPS', FAM='Acid', RCS='RCS')) %>% #pull(treatment)
   column_to_rownames(var='sample_ID') %>% 
   sample_data()
 
@@ -50,7 +50,7 @@ hist(sample_sums(FS12b), breaks=100)
 ### Ordinations ###
 # not including ordinations 
 # fecal only ordinations #
-# FS12b_feces <- FS12b %>% 
+# FS12b_feces <- FS12b %>%
 #   prune_samples(samples = FS12b@sam_data$tissue =='F')
 # 
 # FS12b_feces_meta <- FS12b_feces@sam_data %>% data.frame()
@@ -58,6 +58,16 @@ hist(sample_sums(FS12b), breaks=100)
 #   data.frame()
 # 
 # 
+# feces_OTU <- FS12b_feces@otu_table %>% as(., 'matrix')
+# 
+# library(fastTopics)
+# 
+# 
+# k5 <- fit_topic_model(feces_OTU, k=5)
+# 
+# 
+# structure_plot(k5, grouping =FS12b_feces_meta$treatment )
+# # 
 # FS12b_feces_nmds <- NMDS_ellipse(metadata = FS12b_feces_meta,
 #                                  OTU_table = FS12b_feces_OTU,
 #                                  grouping_set = 'set',distance_method = 'bray')
@@ -239,7 +249,8 @@ hist(sample_sums(FS12b), breaks=100)
 ### ALPHA AND DISPERSION ###
 
 
-FS12b@otu_table
+# FS12b@otu_table
+min(sample_sums(FS12b))
 FS12b_jac <- vegdist(rarefy_even_depth(FS12b)@otu_table, method = 'bray')
 # FS12b_jac
 
@@ -268,7 +279,7 @@ FS12b@sam_data$dayfact <- factor(FS12b@sam_data$day, levels = c('D0', 'D2', 'D7'
 # FS12b_meta$treatment <- factor(FS12b_meta$treatment, levels = c('Control', 'RPS', 'Acid','ZnCu', 'RCS', 'Bglu'))
 # FS12b_meta$treatment <- factor(FS12b_meta$treatment, levels = c('Control', 'RPS', 'Acid', 'RCS'))
 
-
+set.seed(1)
 FS12b@sam_data$shan <- diversity(rrarefy(FS12b@otu_table, min(rowSums(FS12b@otu_table))))
 FS12b@sam_data$rich <- specnumber(rrarefy(FS12b@otu_table, min(rowSums(FS12b@otu_table))))
 FS12b@sam_data$even <- FS12b@sam_data$shan/log(FS12b@sam_data$rich)
@@ -319,7 +330,7 @@ library(emmeans)
 shan_dat <- 
   FS12b@sam_data %>%
   as_tibble() %>% filter(tissue == 'F') %>% 
-  mutate(treatment = factor(treatment, levels = c('Control', 'RPS', 'Acid', 'RCS')))
+  mutate(treatment = factor(treatment, levels = c('CON', 'RPS', 'FAM', 'RCS')))
 
 
 
@@ -332,9 +343,9 @@ shan_contrast.emm <-
   emmeans(shan_mod, ~ treatment | day) %>%
   contrast(method='revpairwise') %>%
   tidy(conf.int=TRUE) %>% 
-  filter(grepl('Control', contrast)) %>% 
+  filter(grepl('CON', contrast)) %>% 
   mutate(day=factor(day, levels = c('D0','D2', 'D7', 'D14', 'D21')), 
-         contrast=factor(contrast, levels = c('RCS - Control', 'Acid - Control','RPS - Control' )), 
+         contrast=factor(contrast, levels = c('RCS - CON', 'FAM - CON','RPS - CON' )), 
          pval=round(adj.p.value, digits = 3), 
          p.plot=ifelse(pval < 0.1, pval, NA)) 
 
@@ -342,7 +353,7 @@ shan_means.emm <-
   emmeans(shan_mod, ~ treatment | day) %>%
   tidy(conf.int=TRUE) %>% 
   mutate(day=factor(day, levels = c('D0','D2', 'D7', 'D14', 'D21')), 
-                    treatment=factor(treatment, levels=c('Control', 'RPS', 'Acid', 'RCS')))
+                    treatment=factor(treatment, levels=c('CON', 'RPS', 'FAM', 'RCS')))
 
 shanfig1 <- 
   shan_means.emm %>% 
@@ -351,15 +362,15 @@ shanfig1 <-
   geom_errorbar(aes(ymin=conf.low, ymax=conf.high), width=.2)+
   geom_line(aes(group=treatment), size=1) + 
   scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple')) + 
-  theme_cowplot() + xlab('Day') + 
+  theme_cowplot() +
+  xlab('Days post inoculation') + 
   ylab('Shannon index')  + 
-  theme(legend.position = 'bottom') + 
-  annotate(geom='label', x=0, y=3, label='P=0.04', fill='#3399FF', size=3.5)+
-  annotate(geom='label', x=0, y=2.85, label='P=0.01', fill='orange', size=3.5)+
-  annotate(geom='label', x=2, y=3, label='P=0.005', fill='#3399FF', size=3.5)+
-  annotate(geom='label', x=14, y=3, label='P=0.02', fill='#3399FF', size=3.5)+
-  annotate(geom='label', x=21, y=3, label='P=0.05', fill='#3399FF', size=3.5)
-
+  theme(legend.position = 'top',panel.grid.major = element_line(color='grey')) + 
+  annotate(geom='label', x=0, y=3, label='0.04', fill='#3399FF', size=4,fontface='bold')+
+  annotate(geom='label', x=0, y=2.85, label='0.01', fill='orange', size=4,fontface='bold')+
+  annotate(geom='label', x=2, y=3, label='0.01', fill='#3399FF', size=4,fontface='bold')+
+  annotate(geom='label', x=14, y=3, label='0.03', fill='#3399FF', size=4,fontface='bold')+
+  annotate(geom='label', x=21, y=3, label='0.05', fill='#3399FF', size=4,fontface='bold')
 
 shanfig1
 
@@ -379,7 +390,7 @@ shanfig2 <-
   theme_cowplot()+
   theme(legend.position = 'none')
 
-
+shanfig2
 
 
 # 
@@ -707,34 +718,34 @@ to_conts$p.fdr <- p.adjust(to_conts$p.value, method = 'fdr')
 to_conts$p.fdr <- round(to_conts$p.fdr, digits = 3)
 to_conts$p.fdr.lab <- ifelse(to_conts$p.fdr < 0.05, to_conts$p.fdr, NA)
 
-to_conts$treatment <- factor(to_conts$treatment, levels=c('RPS', 'Acid', 'ZnCu','RCS', 'Bglu'))
+to_conts$treatment <- fct_recode(to_conts$treatment, RPS='RPS', FAM='Acid', RCS='RCS')
 
 to_conts %>% write_tsv('./output/PERMANOVAs_vs_control.tsv')
 
 to_conts <- read_tsv('./output/PERMANOVAs_vs_control.tsv') %>% 
-  mutate(treatment = factor(treatment, levels = c('Control', 'RPS', 'Acid', 'RCS')), 
+  mutate(treatment = factor(treatment, levels = c('CON', 'RPS', 'FAM', 'RCS')), 
          daynum=as.numeric(sub('D', '', day)))
-######## FIGURE 3 ##########
+######## FIGURE 4 ##########
 
 # ADD ALPHA DIV and DISPERSION 
 
-FIG3A <- 
+FIG4A <- 
   to_conts %>% filter(tissue == 'feces') %>%
   ggplot(aes(x=daynum, y=F.Model, group=treatment, fill=treatment, color=treatment, label=p.fdr.lab)) +
   geom_line(size=1.52) +
   geom_point(shape=21) + 
-  geom_label(color='black', show.legend = FALSE) +
+  geom_label(color='black', show.legend = FALSE, fontface='bold', size=4) +
   scale_color_manual(values=c('#3399FF', 'orange', 'red', 'grey', 'purple')) + 
   scale_fill_manual(values=c('#3399FF', 'orange', 'red', 'grey', 'purple')) +
   theme_cowplot() + 
-  xlab('Day') + 
+  xlab('Days post inoculation') + 
   ylab('F.Model vs Control') + 
   theme(panel.grid.major  = element_line(color='grey'), 
         legend.position = 'none')
   # ggtitle('Community differences compared to control group over time', subtitle = )
-FIG3A
+FIG4A
 
-FIG3B <- shanfig1
+FIG4B <- shanfig1
 
 # fig_3 <- ggdraw()+
 #   draw_plot(FIG3A, 0,.45,1,.55)+
@@ -799,8 +810,54 @@ FIG3B <- shanfig1
 
 rank_names(FS12b)
 # NEED TO SET FACTOR LEVELS FOR TREATMENTS
-FS12b@sam_data$treatment
+FS12b@sam_data$treatment <- factor(FS12b@sam_data$treatment, levels = c('CON', 'RPS', 'FAM', 'RCS'))
 FS12b@sam_data$day
+
+DESeq_difabund <- 
+  function(phyloseq, day, tissue, scientific = TRUE, shrink_type='normal',
+         alpha=0.1, cooks_cut=FALSE, pAdjustMethod='BH'){
+  
+  # FS12b.glom <- tax_glom(FS12b, taxrank = 'Genus')
+  FS12b.glom <- prune_samples(x = phyloseq, samples = phyloseq@sam_data$day == day & phyloseq@sam_data$tissue == tissue)
+  FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
+  FS12.de <- phyloseq_to_deseq2(FS12b.glom, ~treatment)
+  FS12.de <- DESeq(FS12.de, test = 'Wald', fitType = 'parametric')
+  
+  finres <- list()
+  resind <- 1
+  for (i in 2:length(resultsNames(FS12.de))){
+    print(resultsNames(FS12.de)[i])
+    treat <- sub('treatment_(.*)_vs_CON','\\1',resultsNames(FS12.de)[i])
+    comp <- sub('treatment_', '', resultsNames(FS12.de)[i])
+    res <- results(object = FS12.de, name = resultsNames(FS12.de)[i], alpha=alpha, cooksCutoff = cooks_cut, pAdjustMethod = pAdjustMethod)
+    res <- lfcShrink(FS12.de, coef = resultsNames(FS12.de)[i], type = shrink_type)
+    sigtab = res[which(res$padj < alpha), ]
+    
+    if (nrow(sigtab) != 0){
+      # browser()
+      sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(FS12b.glom)[rownames(sigtab), ], "matrix"))
+      sigtab$newp <- format(round(sigtab$padj, digits = 3), scientific = scientific)
+      sigtab$Treatment <- ifelse(sigtab$log2FoldChange >=0, treat, paste('down',treat, sep = '_'))
+      sigtab$OTU <- rownames(sigtab)
+      sigtab$tissue <- tissue
+      sigtab$day <- day
+      sigtab$comp <- comp
+      finres[[resind]] <- sigtab
+      
+      resind <- resind + 1
+    }
+    
+    
+    
+  }
+  
+  finres <- bind_rows(finres)
+  return(finres)
+  
+}
+
+
+
 tocont <- list(DESeq_difabund(phyloseq = FS12b, day = 'D0', tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
                # DESeq_difabund(phyloseq = FS12b, day = 'D0', tissue = 'Q', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
                DESeq_difabund(phyloseq = FS12b, day = 'D2', tissue = 'F', scientific = TRUE, shrink_type = 'apeglm',alpha = 0.05, cooks_cut = TRUE, pAdjustMethod = 'BH'),
@@ -825,21 +882,21 @@ tocont <- list(DESeq_difabund(phyloseq = FS12b, day = 'D0', tissue = 'F', scient
 # tocont_genus <- bind_rows(tocont_genus)
 # tocont_genusF <- tocont_genus %>% filter(abs(log2FoldChange) > .5)
 
-tocont <- bind_rows(tocont)
+tocont <- bind_rows(tocont) %>% write_tsv('./output/unfiltered_DESEQ.tsv')
 tocontf <- tocont[abs(tocont$log2FoldChange) > .5,]
 
-tocontf %>% 
- ggplot(aes(x=Family, y=log2FoldChange, fill=Treatment)) + 
- geom_point(shape=21) + coord_flip() 
-
-
-tocontf %>% filter(Treatment !='RPS') %>% 
-  ggplot(aes(x=Genus, y=log2FoldChange, fill=Treatment)) + 
-  geom_point(shape=21) + coord_flip()
-
-
-ALSO_ENRICHED_IN_OTHERS <- tocontf %>% filter(Treatment !='RPS') %>% pull(OTU) %>% unique()
-
+# tocontf %>% 
+#  ggplot(aes(x=Family, y=log2FoldChange, fill=Treatment)) + 
+#  geom_point(shape=21) + coord_flip() 
+# 
+# 
+# tocontf %>% filter(Treatment !='RPS') %>% 
+#   ggplot(aes(x=Genus, y=log2FoldChange, fill=Treatment)) + 
+#   geom_point(shape=21) + coord_flip()
+# 
+# 
+# ALSO_ENRICHED_IN_OTHERS <- tocontf %>% filter(Treatment !='RPS') %>% pull(OTU) %>% unique()
+# 
 
 # meanOTUbmeans <- 
 #   tocontf %>% group_by(OTU) %>% 
@@ -863,6 +920,7 @@ tocontf %>% write_tsv('./output/Control_vs_All_DESeq.tsv')
 tocontf <- read_tsv('./output/Control_vs_All_DESeq.tsv') %>% 
   mutate(day=factor(day, levels = c('D0', 'D2', 'D7', 'D14', 'D21')))
 
+tocontf$Treatment
 
 #tocontf %>% write_tsv('./figdat/diffabund_OTUS.tsv')
 
@@ -901,12 +959,12 @@ tocontf <- read_tsv('./output/Control_vs_All_DESeq.tsv') %>%
 # tocontf %>% mutate(comp = factor(comp, levels = c('RPS_vs_Control', 'Acid_vs_Control', 'RCS_vs_Control')))
 #### THIS ONE IS A GOOD FIGURE!!!!
 
-FIG3C <- 
+FIG4C <- 
   tocontf %>% 
   filter(log2FoldChange > 0) %>%
   mutate(Order=fct_infreq(Order),
-         Order=fct_lump_n(Order, 8)) %>% 
-  mutate(comp = factor(comp, levels = c('RPS_vs_Control', 'Acid_vs_Control', 'RCS_vs_Control'))) %>% 
+         Order=fct_lump_n(Order, 8, ties.method = 'first')) %>% #pull(Order) %>% levels()
+  mutate(comp = factor(comp, levels = c('RPS_vs_CON', 'FAM_vs_CON', 'RCS_vs_CON'))) %>% 
   group_by(comp, Order) %>%
   tally() %>% 
   ggplot(aes(x=comp, y=n, fill=Order)) +
@@ -919,9 +977,11 @@ FIG3C <-
     # legend.background = element_rect(colour="grey", fill="grey", size=3),
         legend.position=c(.39,.75)
   )+
-  ylab('Number of significantly enriched OTUs vs Control') + 
+  ylab('Number of enriched OTUs') + 
   xlab('')
-FIG3C
+FIG4C
+FIG4C_v2 <- FIG4C + theme(legend.position = 'right')
+FIG4C_v2
 ### TEST ####
 # 
 # tocontf %>% 
@@ -942,7 +1002,7 @@ FIG3C
 #   ylab('Number of significantly enriched OTUs vs Control') + 
 #   xlab('')
 
-
+### BASE MEAN
 tocontf %>% 
   filter(log2FoldChange > 0) %>%
   mutate(Order=fct_infreq(Order),
@@ -958,29 +1018,50 @@ tocontf %>%
         # legend.background = element_rect(colour="grey", fill="grey", size=3),
         legend.position=c(.39,.75)
   )+
-  ylab('Number of significantly enriched OTUs vs Control') + 
+  ylab('Basal abundance of significantly enriched OTUs vs Control') + 
   xlab('')
 
 
 
 colnames(tocontf)
 
-fig_3 <- ggdraw()+
-  draw_plot(FIG3A, 0,.45,.6,.55)+
-  draw_plot(FIG3B, 0,0,.6,.45)+
-  draw_plot(FIG3C, .6,0,.4,1)+
-  draw_plot_label(x=c(0,0, .6), y=c(1,.45,1), label = c('A', 'B','C'))
-fig_3
+fig_4 <- ggdraw()+
+  draw_plot(FIG4B, 0,.5,.6,.5)+
+  draw_plot(FIG4A, 0,0,.6,.5)+
+  draw_plot(FIG4C, .6,0,.4,1)+
+  draw_plot_label(x=c(0,0, .6), y=c(1,.5,1), label = c('A', 'B','C'))
+fig_4
 
 
-
-ggsave(fig_3,
-       filename = './output/figure3.jpeg',
+ggsave(fig_4,
+       filename = './output/figure4.jpeg',
        width = 250,
        height = 140,
        device = 'jpeg',
        dpi = 300,
-       units = 'mm', scale = 1.2)
+       units = 'mm', scale = 1.2, 
+       bg='white')
+##
+
+fig_4_v2 <- ggdraw()+
+  draw_plot(FIG4B, 0,.66,1,.33)+
+  draw_plot(FIG4A, 0,.33,1,.33)+
+  draw_plot(FIG4C_v2, 0,0,1,.33)+
+  draw_plot_label(x=c(0,0, 0), y=c(1,.66,.33), label = c('A', 'B','C'))
+fig_4_v2
+
+
+
+ggsave(fig_4_v2,
+       filename = './output/figure4_v2.jpeg',
+       width = 250,
+       height = 250,
+       device = 'jpeg',
+       dpi = 300,
+       units = 'mm', scale = 1.2, 
+       bg='white')
+
+
 
 
 # tocontf %>% 
@@ -1023,7 +1104,7 @@ tocontf$Treatment <- sub('down_','',tocontf$Treatment)
 
 ## Not a bad figure...
 
-FIG4A <- 
+FIG5A <- 
   tocontf %>%
   filter(Treatment == 'RPS') %>% 
   filter(tissue == 'F' & day != 'D21') %>% 
@@ -1041,10 +1122,10 @@ FIG4A <-
   theme(panel.grid.major.y =element_line(size=1, color='grey'), 
         axis.text.y = element_text(size=11)) 
   
-FIG4A
+FIG5A
 
 
-FIG4B <- 
+FIG5B <- 
   tocontf %>%
   filter(Treatment == 'RPS') %>% 
   filter(day == 'D21') %>% 
@@ -1059,7 +1140,7 @@ FIG4B <-
   theme_cowplot() + 
   theme(panel.grid.major.y =element_line(size=1, color='grey'), 
         axis.text.y = element_text(size=11)) 
-FIG4B
+FIG5B
 
 
 
@@ -1078,7 +1159,7 @@ RPS_sigOTUs <-
 
 
 RPS_CONTROLpsmelt <- 
-  prune_samples(FS12b@sam_data$treatment %in% c('Control', 'RPS'), FS12b) %>% 
+  prune_samples(FS12b@sam_data$treatment %in% c('CON', 'RPS'), FS12b) %>% 
   rarefy_even_depth() %>% 
   psmelt()
 
@@ -1110,7 +1191,7 @@ RPS_CONTROLstacks <-
 
 
 
-FIG4C <- 
+FIG5C <- 
 RPS_CONTROLstacks %>% 
   group_by(treatment, Class4) %>% 
   summarise(perc_comm=sum(perc_comm)) %>% 
@@ -1126,7 +1207,7 @@ RPS_CONTROLstacks %>%
         legend.title = element_text(size=12))+
   guides(fill=guide_legend(nrow=3,byrow=FALSE))
 
-FIG4C
+FIG5C
 
 # maybe supplement with staked bar showing how these OTUs make up the overall
 # community (on average) in the RPS group vs the Control Group
@@ -1135,17 +1216,20 @@ FIG4C
 
 
 
-FIG4 <- 
+FIG5 <- 
   ggdraw() + 
-  draw_plot(FIG4A, x=0, y=.45, width = .6, height = .55) + 
-  draw_plot(FIG4B, x=0, y=.0, width = .6, height = .45) + 
-  draw_plot(FIG4C, x=.6, y=0, width = .4, height = 1)
+  draw_plot(FIG5A, x=0, y=.45, width = .6, height = .55) + 
+  draw_plot(FIG5B, x=0, y=.0, width = .6, height = .45) + 
+  draw_plot(FIG5C, x=.6, y=0, width = .4, height = 1)+
+  draw_plot_label(x=c(0,0, .6), y=c(1,.45,1), label = c('A', 'B','C'))
 
-FIG4
-ggsave(filename = './output/figure4.jpeg', plot = FIG4, device = 'jpeg', 
-       width = 280, 
-       height=180, units = 'mm', 
-       scale = 1.2)
+FIG5
+ggsave(filename = './output/figure5.jpeg', plot = FIG5, device = 'jpeg', 
+       width = 310, 
+       height=250, units = 'mm', 
+       scale = 1.2, 
+       bg='white')
+
 # For each Day
 
 
@@ -1242,427 +1326,427 @@ tocontf %>%
 tocontf %>% filter(Genus == 'Escherichia-Shigella') %>% .$OTU
 tocontf %>% filter(Genus == 'Clostridium_sensu_stricto_1') %>% .$OTU %>% unique()
 
-### Salmonella linear relationships
-
-FS12_RPS <- subset_samples(FS12b, treatment == 'RPS')
-
-
-#### log_sal as continuous covariate #### 
-# formula(paste('~', 'log_sal'))
-# FS12b@sam_data$day %in% c(day) & FS12b@sam_data$tissue == 'F'
-##### SHOULD REALLY LOOK INTO INTERACTION WITH TREATMENT HERE!!!!!!!! 
-### OR SUBSET EACH TREATMENT
-
-DESeq_cov_asso <- 
-  function(phyloseq_obj,
-           day,
-           tissue,
-           covariate,
-           shrink_type='apeglm',
-           cookscut=TRUE, 
-           treatment=FALSE, 
-           scale_cov=TRUE, 
-           p.plot=0.05, 
-           plot_lab='Genus', 
-           l2fc_plot=0.25){
-    
-    num_treats <- length(unique(phyloseq_obj@sam_data[['treatment']]))
-  # include treatment in formula?
-  if (treatment & (num_treats > 1)){
-    
-    form <- formula(paste('~', covariate, '+ treatment'))
-    print(form)
-  } else {
-    form <- formula(paste('~', covariate))
-    print(form)
-  }
-  
-  
-  # print(form)
-  # browser()
-  FS12b.glom <- phyloseq_obj %>%
-    prune_samples(samples = phyloseq_obj@sam_data$day %in% c(day) & phyloseq_obj@sam_data$tissue == tissue & !is.na(phyloseq_obj@sam_data[[covariate]]))
-  
-  # scale covariate?
-  if (scale_cov){
-    print('scale_cov == TRUE, scaling covariate')
-    FS12b.glom@sam_data[[covariate]] <- scale(FS12b.glom@sam_data[[covariate]])
-    
-  }
-  
-  
-  FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
-  
-  # FS12b.glom@sam_data$log_sal
-  
-  FS12b.de <- phyloseq_to_deseq2(FS12b.glom, form)
-  FS12b.de <- DESeq(FS12b.de, test = 'Wald', fitType = 'parametric')
-  
-  # these are not both possible.  Right now only lfcshrink is doing anytihng
-  # res <- results(FS12b.de, cooksCutoff = FALSE, name = covariate)
-  res <- results(FS12b.de, name=covariate, cooksCutoff = cookscut)
-  sigtab <- lfcShrink(dds = FS12b.de, res=res, coef = covariate, type = shrink_type)
-  
-  # browser()
-  # resultsNames(FS12b.de)
-  
-  
-  # res <- res[!is.na(res$padj),]
-  # res <- res[res$padj < 0.1,]
-  # sigtab <- res[abs(res$log2FoldChange) > .1 ,]
-  sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(phyloseq_obj)[rownames(sigtab), ], "matrix"))
-  sigtab$newp <- format(round(sigtab$padj, digits = 3), scientific = TRUE)
-  # sigtab$Treatment <- ifelse(sigtab$log2FoldChange >=0, treat, paste('down',treat, sep = '_'))
-  sigtab$OTU <- rownames(sigtab)
-  sigtab[['direction']] <- ifelse(sigtab$log2FoldChange > 0 , 'increased', 'decreased')
-  # sigtab$salm <- ifelse(sigtab$log2FoldChange >0 , 'increased', 'decreased')
-  sigtab <- sigtab[order(sigtab$log2FoldChange),]
-  sigtab$OTU <- factor(sigtab$OTU, levels = sigtab$OTU)
-  sigtab$day <- day
-  sigtab$tissue <- tissue
-  sigtab[['covariate']] <- covariate
-  plot_tab <- sigtab %>% filter(padj < p.plot & abs(log2FoldChange) > l2fc_plot)
-  fig_tit <- paste(covariate, 'associations with OTUs')
-  if (nrow(plot_tab) > 0 ){
-      p <- plot_tab %>% 
-        ggplot(aes_string(x='OTU', y='log2FoldChange', fill='direction')) +
-        geom_col(color='black') +
-        coord_flip() +
-        geom_text(aes_string(label=plot_lab, y=0)) + 
-        ggtitle(fig_tit)
-    
-  } else {
-    print('nothing to plot')
-    p <- ggplot() + 
-      ggtitle('No sig associations')
-  }
-  
-  return(list(p, sigtab))
-  
-  
-}
-
-###
-# VFA associations with OTUs only RPS group #
-SCFA_OTU_assoc_RPS <- 
-  list(
-    DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'butyrate')[[2]],
-    DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'caproate')[[2]],
-    DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'valerate')[[2]],
-    DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'succinate')[[2]], 
-    DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'lactate')[[2]], 
-    DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'acetate')[[2]], 
-    DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'propionate')[[2]], 
-    DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'isobutyrate')[[2]],
-    DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'isovalerate')[[2]],
-    DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'phenylacetate')[[2]],
-    DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'oxalate')[[2]]
-  ) %>% 
-  bind_rows() %>%
-  filter(padj < 0.05 & abs(log2FoldChange) >.5) %>% 
-  mutate(node_name=paste(day, tissue, direction, covariate,sep = '_'))
-
-# SUPP FIG
-SCFA_OTU_ASSOC_FIG <- 
-  SCFA_OTU_assoc_RPS %>% 
-  ggplot(aes(x=Genus, y=log2FoldChange, fill=covariate)) +
-  geom_hline(yintercept = 0)+
-  geom_point(shape=21, size=3) + 
-  coord_flip()+
-  scale_shape_manual(values = 21:27)  +
-  scale_fill_brewer(palette = 'Set1')
-SCFA_OTU_ASSOC_FIG
-
-ggsave('./output/fig_S1.jpeg', 
-       plot=SCFA_OTU_ASSOC_FIG, 
-       device = 'jpeg', 
-       width=150, 
-       height = 150, 
-       units = 'mm', scale=1.2)
-
-#### OTU SAL associations ######
-
-# this now has node names added
-OTUS_SAL_assoc_RPS <-
-  bind_rows(
-  DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D2', tissue = 'F', covariate = 'log_sal')[[2]],
-  DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D7', tissue = 'F', covariate = 'log_sal')[[2]],
-  # DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D14', tissue = 'F', covariate = 'log_sal')[[2]],
-  # DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'F', covariate = 'log_sal')[[2]],
-  DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'X', covariate = 'log_sal')[[2]],
-  DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'log_sal')[[2]]) %>% 
-  filter(padj < 0.05 & abs(log2FoldChange) >.5) %>% 
-  mutate(node_name=paste(day, tissue, direction, covariate,sep = '_'))
-
-
-
-
-OTUS_RED_SAL_RPS <- OTUS_SAL_assoc_RPS %>% 
-  filter(padj< 0.05, log2FoldChange < -.25)
-
-### SUPP FIG ###
-### USE ME ###
-SAL_OTU_ASSOC_FIG <- 
-  OTUS_SAL_assoc_RPS %>%
-  filter(padj < 0.05, abs(log2FoldChange) > 0.25) %>% 
-  ggplot(aes(x=Genus, y=log2FoldChange, shape=tissue, fill=day)) +
-  geom_hline(yintercept = 0)+
-  geom_point(size=3) + 
-  coord_flip()+
-  scale_shape_manual(values = 21:22)+
-  guides(fill = guide_legend(override.aes = list(shape = 21)))
-
-SAL_OTU_ASSOC_FIG
-
-
-ggsave('./output/fig_S2.jpeg', 
-       plot=SAL_OTU_ASSOC_FIG, 
-       device = 'jpeg', 
-       width=150, 
-       height = 150, 
-       units = 'mm', scale=1.2)
-
-
-
-
-
-# ### FOR SPARCC OTU OTU CORRELATIONS
-# RPS_cec_phy <- 
-#   prune_samples(samples = FS12_RPS@sam_data$tissue == 'C', FS12_RPS) %>%
-#   rarefy_even_depth()
+# ### Salmonella linear relationships
 # 
-# min(sample_sums(RPS_cec_phy))
+# FS12_RPS <- subset_samples(FS12b, treatment == 'RPS')
 # 
 # 
-# as(RPS_cec_phy@otu_table, 'matrix') %>% t() %>% as.data.frame() %>% 
-#   rownames_to_column(var='#OTU ID') %>% write_tsv('./output/RPS_cecc_OTUs.tsv')
+# #### log_sal as continuous covariate #### 
+# # formula(paste('~', 'log_sal'))
+# # FS12b@sam_data$day %in% c(day) & FS12b@sam_data$tissue == 'F'
+# ##### SHOULD REALLY LOOK INTO INTERACTION WITH TREATMENT HERE!!!!!!!! 
+# ### OR SUBSET EACH TREATMENT
 # 
-
-
-###
-  
-
-
-
-SCFA_OTU_edges <- 
-  SCFA_OTU_assoc_RPS %>% 
-  filter(tissue == 'C') %>% 
-  transmute(from=as.character(OTU),
-            to=covariate,
-            weight=log2FoldChange)
-
-OTU_NODES <- 
-  tibble(V_ID=unique(SCFA_OTU_edges$from), 
-         type='OTU')
-
-### VFA VFA correlation calculation
-
-# I want D2 and D7 fecal shedding here
-# do i want X as well? start with just F2 and F7
-day_shed <- as(sample_data(FS12_RPS), 'data.frame') %>%
-  filter(tissue == 'F' & day %in% c('D2', 'D7')) %>% 
-  mutate(node_name=paste(day, 'shed', sep = '_')) %>% 
-  select(pignum,log_sal, node_name) %>%
-  spread(key=node_name, value = log_sal)
-
-# what's this about?
-day_shed[4,2] <- 1.698970
-
-meta <- as(sample_data(FS12_RPS), 'data.frame') %>% 
-  filter(tissue == 'C')
-
-vfa_shed_mat <- meta %>%
-  select(pignum, ends_with('ate'), AULC) %>%
-  left_join(day_shed) %>%
-  column_to_rownames('pignum') %>% 
-  as('matrix') %>%
-  scale()
-
-VFA_SIG_CORS <-
-  Hmisc::rcorr(vfa_shed_mat) %>% 
-  broom::tidy() %>%
-  filter(p.value < 0.05) %>% 
-  mutate(direction=ifelse(estimate >0, 'increased', 'decreased'), 
-         )
-  
-tmp <- VFA_SIG_CORS %>%
-  filter(column1 %in% c('AULC', 'D2_shed', 'D7_shed')) %>% 
-  transmute(column1=paste(direction, column1, sep = '_'), 
-            column2=column2, 
-            estimate=-estimate) 
-
-tmp[5,]$column1 <- 'decreased_D7_shed' 
-tmp[5,]$column2 <- 'decreased_AULC'
-tmp[5,]$estimate <- 0.797
-
-
-VFA_SIG_CORS <- 
-  VFA_SIG_CORS %>% 
-  filter(!column1 %in% c('AULC', 'D2_shed', 'D7_shed')) %>% 
-  bind_rows(tmp)
-  
-
-
-VFA_VFA_EDGES <- 
-  VFA_SIG_CORS %>% 
-  transmute(from=column1, 
-            to=column2,
-            weight=estimate)
-
-VFA_NODES <- 
-  tibble(V_ID=unique(c(VFA_SIG_CORS$column1, VFA_SIG_CORS$column2)), 
-         type=case_when(
-           grepl('decreased', V_ID)     ~ 'Salmonella', 
-           TRUE                         ~ 'VFA'
-         )) %>% 
-  filter(V_ID %in% c('succinate', 'butyrate', 'caproate', 'valerate', 
-                     'decreased_D2_shed', 'decreased_D7_shed', 'decreased_AULC'))
-
-
-### OTU OTU edges ###
-# read in fastspar results
-# corP <- 
-#   read_tsv('./output/RPS_CECC_COR_pvalues.tsv') %>%
-#   gather(-`#OTU ID`, key='to',value='pval' ) %>% 
-#   mutate(from=`#OTU ID`) %>% 
-#   select(from, to, pval)
+# DESeq_cov_asso <- 
+#   function(phyloseq_obj,
+#            day,
+#            tissue,
+#            covariate,
+#            shrink_type='apeglm',
+#            cookscut=TRUE, 
+#            treatment=FALSE, 
+#            scale_cov=TRUE, 
+#            p.plot=0.05, 
+#            plot_lab='Genus', 
+#            l2fc_plot=0.25){
+#     
+#     num_treats <- length(unique(phyloseq_obj@sam_data[['treatment']]))
+#   # include treatment in formula?
+#   if (treatment & (num_treats > 1)){
+#     
+#     form <- formula(paste('~', covariate, '+ treatment'))
+#     print(form)
+#   } else {
+#     form <- formula(paste('~', covariate))
+#     print(form)
+#   }
+#   
+#   
+#   # print(form)
+#   # browser()
+#   FS12b.glom <- phyloseq_obj %>%
+#     prune_samples(samples = phyloseq_obj@sam_data$day %in% c(day) & phyloseq_obj@sam_data$tissue == tissue & !is.na(phyloseq_obj@sam_data[[covariate]]))
+#   
+#   # scale covariate?
+#   if (scale_cov){
+#     print('scale_cov == TRUE, scaling covariate')
+#     FS12b.glom@sam_data[[covariate]] <- scale(FS12b.glom@sam_data[[covariate]])
+#     
+#   }
+#   
+#   
+#   FS12b.glom <- prune_taxa(taxa_sums(FS12b.glom) > 1, FS12b.glom)
+#   
+#   # FS12b.glom@sam_data$log_sal
+#   
+#   FS12b.de <- phyloseq_to_deseq2(FS12b.glom, form)
+#   FS12b.de <- DESeq(FS12b.de, test = 'Wald', fitType = 'parametric')
+#   
+#   # these are not both possible.  Right now only lfcshrink is doing anytihng
+#   # res <- results(FS12b.de, cooksCutoff = FALSE, name = covariate)
+#   res <- results(FS12b.de, name=covariate, cooksCutoff = cookscut)
+#   sigtab <- lfcShrink(dds = FS12b.de, res=res, coef = covariate, type = shrink_type)
+#   
+#   # browser()
+#   # resultsNames(FS12b.de)
+#   
+#   
+#   # res <- res[!is.na(res$padj),]
+#   # res <- res[res$padj < 0.1,]
+#   # sigtab <- res[abs(res$log2FoldChange) > .1 ,]
+#   sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(phyloseq_obj)[rownames(sigtab), ], "matrix"))
+#   sigtab$newp <- format(round(sigtab$padj, digits = 3), scientific = TRUE)
+#   # sigtab$Treatment <- ifelse(sigtab$log2FoldChange >=0, treat, paste('down',treat, sep = '_'))
+#   sigtab$OTU <- rownames(sigtab)
+#   sigtab[['direction']] <- ifelse(sigtab$log2FoldChange > 0 , 'increased', 'decreased')
+#   # sigtab$salm <- ifelse(sigtab$log2FoldChange >0 , 'increased', 'decreased')
+#   sigtab <- sigtab[order(sigtab$log2FoldChange),]
+#   sigtab$OTU <- factor(sigtab$OTU, levels = sigtab$OTU)
+#   sigtab$day <- day
+#   sigtab$tissue <- tissue
+#   sigtab[['covariate']] <- covariate
+#   plot_tab <- sigtab %>% filter(padj < p.plot & abs(log2FoldChange) > l2fc_plot)
+#   fig_tit <- paste(covariate, 'associations with OTUs')
+#   if (nrow(plot_tab) > 0 ){
+#       p <- plot_tab %>% 
+#         ggplot(aes_string(x='OTU', y='log2FoldChange', fill='direction')) +
+#         geom_col(color='black') +
+#         coord_flip() +
+#         geom_text(aes_string(label=plot_lab, y=0)) + 
+#         ggtitle(fig_tit)
+#     
+#   } else {
+#     print('nothing to plot')
+#     p <- ggplot() + 
+#       ggtitle('No sig associations')
+#   }
+#   
+#   return(list(p, sigtab))
+#   
+#   
+# }
 # 
-# corR <- 
-#   read_tsv('./output/RPS_cec_correlation.tsv')%>%
-#   gather(-`#OTU ID`, key='to',value='r_corr' ) %>%
-#   mutate(from=`#OTU ID`) %>% 
-#   select(from, to, r_corr)
+# ###
+# # VFA associations with OTUs only RPS group #
+# SCFA_OTU_assoc_RPS <- 
+#   list(
+#     DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'butyrate')[[2]],
+#     DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'caproate')[[2]],
+#     DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'valerate')[[2]],
+#     DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'succinate')[[2]], 
+#     DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'lactate')[[2]], 
+#     DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'acetate')[[2]], 
+#     DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'propionate')[[2]], 
+#     DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'isobutyrate')[[2]],
+#     DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'isovalerate')[[2]],
+#     DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'phenylacetate')[[2]],
+#     DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'oxalate')[[2]]
+#   ) %>% 
+#   bind_rows() %>%
+#   filter(padj < 0.05 & abs(log2FoldChange) >.5) %>% 
+#   mutate(node_name=paste(day, tissue, direction, covariate,sep = '_'))
+# 
+# # SUPP FIG
+# SCFA_OTU_ASSOC_FIG <- 
+#   SCFA_OTU_assoc_RPS %>% 
+#   ggplot(aes(x=Genus, y=log2FoldChange, fill=covariate)) +
+#   geom_hline(yintercept = 0)+
+#   geom_point(shape=21, size=3) + 
+#   coord_flip()+
+#   scale_shape_manual(values = 21:27)  +
+#   scale_fill_brewer(palette = 'Set1')
+# SCFA_OTU_ASSOC_FIG
+# 
+# ggsave('./output/fig_S1.jpeg', 
+#        plot=SCFA_OTU_ASSOC_FIG, 
+#        device = 'jpeg', 
+#        width=150, 
+#        height = 150, 
+#        units = 'mm', scale=1.2)
+# 
+# #### OTU SAL associations ######
+# 
+# # this now has node names added
+# OTUS_SAL_assoc_RPS <-
+#   bind_rows(
+#   DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D2', tissue = 'F', covariate = 'log_sal')[[2]],
+#   DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D7', tissue = 'F', covariate = 'log_sal')[[2]],
+#   # DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D14', tissue = 'F', covariate = 'log_sal')[[2]],
+#   # DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'F', covariate = 'log_sal')[[2]],
+#   DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'X', covariate = 'log_sal')[[2]],
+#   DESeq_cov_asso(phyloseq_obj = FS12_RPS, day = 'D21', tissue = 'C', covariate = 'log_sal')[[2]]) %>% 
+#   filter(padj < 0.05 & abs(log2FoldChange) >.5) %>% 
+#   mutate(node_name=paste(day, tissue, direction, covariate,sep = '_'))
 # 
 # 
-# OTU_OTU_EDGES <- 
-#   corP %>%
-#   left_join(corR) %>%
-#   filter(r_corr > .6 & pval < 0.05) %>% 
-#   filter(from %in% OTU_NODES$V_ID & to %in% OTU_NODES$V_ID) %>% 
-#   transmute(from=from, to =to, weight=r_corr)
 # 
-
-# OTU SAL EDGES
-#from #to #weight
-
-OTU_SAL_EDGES <- 
-  OTUS_RED_SAL_RPS %>% 
-  transmute(from=as.character(OTU), 
-            to=paste(direction, day, 'shed', sep = '_'), 
-            weight=-log2FoldChange/max(-log2FoldChange))
-  
-
-OTU_SAL_NODES <- 
-  tibble(V_ID=unique(c(OTU_SAL_EDGES$from, OTU_SAL_EDGES$to)), 
-         type=case_when(
-           grepl('Otu', V_ID)           ~ 'OTU', 
-           TRUE                         ~ 'Salmonella'
-         ))
-
-###
-
-###
-
-#
-
-NODES <- unique(bind_rows(VFA_NODES, OTU_NODES, OTU_SAL_NODES))
-EDGES <- unique(bind_rows(SCFA_OTU_edges, VFA_VFA_EDGES, OTU_SAL_EDGES))
-
-# filtering here...
-NODES <- 
-  NODES %>%
-  filter(V_ID %in% OTUS_RED_SAL_RPS$OTU | V_ID %in% VFA_NODES$V_ID ) %>% 
-  filter(V_ID %in% RPS_sigOTUs | V_ID %in% VFA_NODES$V_ID )  
-EDGES <- 
-  EDGES %>% filter(from %in% NODES$V_ID & to %in% NODES$V_ID)
-
-library(geomnet)
-
-NET <- fortify(as.edgedf(EDGES), NODES)
-
-### geomnet
-set.seed(1)
-
-gg <- ggplot(data = NET, aes(from_id = from_id, to_id = to_id)) +
-  geom_net(colour = "darkred", labelon=TRUE, size = 7,layout.alg = 'fruchtermanreingold', 
-           directed = FALSE, vjust = 0.5, labelcolour = "black",
-           ecolour = "grey40") +
-  theme_net()
-
-
-graph_layout <- 
-  gg %>% ggplot_build()
-
-
- 
-GRAPH_EDGES <- graph_layout$data[[1]] %>%  select(from , to, x, y, xend, yend)
-
-gn1TMP <- 
-  GRAPH_EDGES %>% 
-  select(from, x, y) %>%
-  unique()
-
-gn2TMP <- 
-  GRAPH_EDGES %>% 
-  select(to, xend, yend) %>%
-  unique() %>%
-  transmute(from=to, x=xend, y=yend)
-
-NODE_DATA <- bind_rows(gn1TMP, gn2TMP) %>% unique()
-SCFA_NODES <- NODE_DATA %>% filter(!grepl('Otu', from)) # should be 'other_nodes'
-
-
-ONODES <- 
-  NODE_DATA %>%
-  filter(grepl('Otu', from)) %>% 
-  transmute(OTU=from, x=x, y=y) %>% 
-  left_join(taxtab)
-
-(ONODES$Family)
-
-# NOW BRING IN ABUND DATA
-ONODES <- 
-  RPS_CONTROLstacks %>% 
-  filter(treatment == 'RPS') %>% 
-  filter(OTU %in%ONODES$OTU) %>% 
-  select(OTU, perc_comm) %>% 
-  right_join(ONODES) %>% 
-  mutate(Class=fct_reorder(Class, perc_comm, .fun = sum, .desc = TRUE))
-
-
-unique(ONODES$Family)
-
-library(ggrepel)
-
-FIG7 <- 
-  ONODES %>%
-  ggplot(aes(x=x, y=y)) + 
-  geom_segment(data=GRAPH_EDGES, aes(x=x, y=y, xend=xend, yend=yend), color='grey') + 
-  geom_point(shape=21, aes(size=perc_comm, fill=Class)) + 
-  scale_fill_brewer(palette = 'Set1') + 
-  geom_text(aes(label=Genus), size=3, nudge_y = .02) + 
-  geom_point(data = SCFA_NODES, aes(x=x, y=y), size=4, shape=22, fill='black') + 
-  geom_label(data = SCFA_NODES, aes(x=x, y=y, label=from), size=4,color='white', fill='black')  + 
-  theme_net() + 
-  # geom_text_repel(aes(label=Genus))+
-  theme(legend.position = 'bottom')
-
-
-FIG7
-
-ggsave('./output/figure7.jpeg',
-       plot = FIG7,
-       device = 'jpeg',
-       width = 180,
-       height=180, units = 'mm')
-
-
-
-ALLSTAR_TAB <- 
-  ONODES %>% 
-  select(OTU, perc_comm, Domain:Genus) %>% 
-  write_tsv('./output/Allstar_OTUs.tsv')
-
+# 
+# OTUS_RED_SAL_RPS <- OTUS_SAL_assoc_RPS %>% 
+#   filter(padj< 0.05, log2FoldChange < -.25)
+# 
+# ### SUPP FIG ###
+# ### USE ME ###
+# SAL_OTU_ASSOC_FIG <- 
+#   OTUS_SAL_assoc_RPS %>%
+#   filter(padj < 0.05, abs(log2FoldChange) > 0.25) %>% 
+#   ggplot(aes(x=Genus, y=log2FoldChange, shape=tissue, fill=day)) +
+#   geom_hline(yintercept = 0)+
+#   geom_point(size=3) + 
+#   coord_flip()+
+#   scale_shape_manual(values = 21:22)+
+#   guides(fill = guide_legend(override.aes = list(shape = 21)))
+# 
+# SAL_OTU_ASSOC_FIG
+# 
+# 
+# ggsave('./output/fig_S2.jpeg', 
+#        plot=SAL_OTU_ASSOC_FIG, 
+#        device = 'jpeg', 
+#        width=150, 
+#        height = 150, 
+#        units = 'mm', scale=1.2)
+# 
+# 
+# 
+# 
+# 
+# # ### FOR SPARCC OTU OTU CORRELATIONS
+# # RPS_cec_phy <- 
+# #   prune_samples(samples = FS12_RPS@sam_data$tissue == 'C', FS12_RPS) %>%
+# #   rarefy_even_depth()
+# # 
+# # min(sample_sums(RPS_cec_phy))
+# # 
+# # 
+# # as(RPS_cec_phy@otu_table, 'matrix') %>% t() %>% as.data.frame() %>% 
+# #   rownames_to_column(var='#OTU ID') %>% write_tsv('./output/RPS_cecc_OTUs.tsv')
+# # 
+# 
+# 
+# ###
+#   
+# 
+# 
+# 
+# SCFA_OTU_edges <- 
+#   SCFA_OTU_assoc_RPS %>% 
+#   filter(tissue == 'C') %>% 
+#   transmute(from=as.character(OTU),
+#             to=covariate,
+#             weight=log2FoldChange)
+# 
+# OTU_NODES <- 
+#   tibble(V_ID=unique(SCFA_OTU_edges$from), 
+#          type='OTU')
+# 
+# ### VFA VFA correlation calculation
+# 
+# # I want D2 and D7 fecal shedding here
+# # do i want X as well? start with just F2 and F7
+# day_shed <- as(sample_data(FS12_RPS), 'data.frame') %>%
+#   filter(tissue == 'F' & day %in% c('D2', 'D7')) %>% 
+#   mutate(node_name=paste(day, 'shed', sep = '_')) %>% 
+#   select(pignum,log_sal, node_name) %>%
+#   spread(key=node_name, value = log_sal)
+# 
+# # what's this about?
+# day_shed[4,2] <- 1.698970
+# 
+# meta <- as(sample_data(FS12_RPS), 'data.frame') %>% 
+#   filter(tissue == 'C')
+# 
+# vfa_shed_mat <- meta %>%
+#   select(pignum, ends_with('ate'), AULC) %>%
+#   left_join(day_shed) %>%
+#   column_to_rownames('pignum') %>% 
+#   as('matrix') %>%
+#   scale()
+# 
+# VFA_SIG_CORS <-
+#   Hmisc::rcorr(vfa_shed_mat) %>% 
+#   broom::tidy() %>%
+#   filter(p.value < 0.05) %>% 
+#   mutate(direction=ifelse(estimate >0, 'increased', 'decreased'), 
+#          )
+#   
+# tmp <- VFA_SIG_CORS %>%
+#   filter(column1 %in% c('AULC', 'D2_shed', 'D7_shed')) %>% 
+#   transmute(column1=paste(direction, column1, sep = '_'), 
+#             column2=column2, 
+#             estimate=-estimate) 
+# 
+# tmp[5,]$column1 <- 'decreased_D7_shed' 
+# tmp[5,]$column2 <- 'decreased_AULC'
+# tmp[5,]$estimate <- 0.797
+# 
+# 
+# VFA_SIG_CORS <- 
+#   VFA_SIG_CORS %>% 
+#   filter(!column1 %in% c('AULC', 'D2_shed', 'D7_shed')) %>% 
+#   bind_rows(tmp)
+#   
+# 
+# 
+# VFA_VFA_EDGES <- 
+#   VFA_SIG_CORS %>% 
+#   transmute(from=column1, 
+#             to=column2,
+#             weight=estimate)
+# 
+# VFA_NODES <- 
+#   tibble(V_ID=unique(c(VFA_SIG_CORS$column1, VFA_SIG_CORS$column2)), 
+#          type=case_when(
+#            grepl('decreased', V_ID)     ~ 'Salmonella', 
+#            TRUE                         ~ 'VFA'
+#          )) %>% 
+#   filter(V_ID %in% c('succinate', 'butyrate', 'caproate', 'valerate', 
+#                      'decreased_D2_shed', 'decreased_D7_shed', 'decreased_AULC'))
+# 
+# 
+# ### OTU OTU edges ###
+# # read in fastspar results
+# # corP <- 
+# #   read_tsv('./output/RPS_CECC_COR_pvalues.tsv') %>%
+# #   gather(-`#OTU ID`, key='to',value='pval' ) %>% 
+# #   mutate(from=`#OTU ID`) %>% 
+# #   select(from, to, pval)
+# # 
+# # corR <- 
+# #   read_tsv('./output/RPS_cec_correlation.tsv')%>%
+# #   gather(-`#OTU ID`, key='to',value='r_corr' ) %>%
+# #   mutate(from=`#OTU ID`) %>% 
+# #   select(from, to, r_corr)
+# # 
+# # 
+# # OTU_OTU_EDGES <- 
+# #   corP %>%
+# #   left_join(corR) %>%
+# #   filter(r_corr > .6 & pval < 0.05) %>% 
+# #   filter(from %in% OTU_NODES$V_ID & to %in% OTU_NODES$V_ID) %>% 
+# #   transmute(from=from, to =to, weight=r_corr)
+# # 
+# 
+# # OTU SAL EDGES
+# #from #to #weight
+# 
+# OTU_SAL_EDGES <- 
+#   OTUS_RED_SAL_RPS %>% 
+#   transmute(from=as.character(OTU), 
+#             to=paste(direction, day, 'shed', sep = '_'), 
+#             weight=-log2FoldChange/max(-log2FoldChange))
+#   
+# 
+# OTU_SAL_NODES <- 
+#   tibble(V_ID=unique(c(OTU_SAL_EDGES$from, OTU_SAL_EDGES$to)), 
+#          type=case_when(
+#            grepl('Otu', V_ID)           ~ 'OTU', 
+#            TRUE                         ~ 'Salmonella'
+#          ))
+# 
+# ###
+# 
+# ###
+# 
+# #
+# 
+# NODES <- unique(bind_rows(VFA_NODES, OTU_NODES, OTU_SAL_NODES))
+# EDGES <- unique(bind_rows(SCFA_OTU_edges, VFA_VFA_EDGES, OTU_SAL_EDGES))
+# 
+# # filtering here...
+# NODES <- 
+#   NODES %>%
+#   filter(V_ID %in% OTUS_RED_SAL_RPS$OTU | V_ID %in% VFA_NODES$V_ID ) %>% 
+#   filter(V_ID %in% RPS_sigOTUs | V_ID %in% VFA_NODES$V_ID )  
+# EDGES <- 
+#   EDGES %>% filter(from %in% NODES$V_ID & to %in% NODES$V_ID)
+# 
+# library(geomnet)
+# 
+# NET <- fortify(as.edgedf(EDGES), NODES)
+# 
+# ### geomnet
+# set.seed(1)
+# 
+# gg <- ggplot(data = NET, aes(from_id = from_id, to_id = to_id)) +
+#   geom_net(colour = "darkred", labelon=TRUE, size = 7,layout.alg = 'fruchtermanreingold', 
+#            directed = FALSE, vjust = 0.5, labelcolour = "black",
+#            ecolour = "grey40") +
+#   theme_net()
+# 
+# 
+# graph_layout <- 
+#   gg %>% ggplot_build()
+# 
+# 
+#  
+# GRAPH_EDGES <- graph_layout$data[[1]] %>%  select(from , to, x, y, xend, yend)
+# 
+# gn1TMP <- 
+#   GRAPH_EDGES %>% 
+#   select(from, x, y) %>%
+#   unique()
+# 
+# gn2TMP <- 
+#   GRAPH_EDGES %>% 
+#   select(to, xend, yend) %>%
+#   unique() %>%
+#   transmute(from=to, x=xend, y=yend)
+# 
+# NODE_DATA <- bind_rows(gn1TMP, gn2TMP) %>% unique()
+# SCFA_NODES <- NODE_DATA %>% filter(!grepl('Otu', from)) # should be 'other_nodes'
+# 
+# 
+# ONODES <- 
+#   NODE_DATA %>%
+#   filter(grepl('Otu', from)) %>% 
+#   transmute(OTU=from, x=x, y=y) %>% 
+#   left_join(taxtab)
+# 
+# (ONODES$Family)
+# 
+# # NOW BRING IN ABUND DATA
+# ONODES <- 
+#   RPS_CONTROLstacks %>% 
+#   filter(treatment == 'RPS') %>% 
+#   filter(OTU %in%ONODES$OTU) %>% 
+#   select(OTU, perc_comm) %>% 
+#   right_join(ONODES) %>% 
+#   mutate(Class=fct_reorder(Class, perc_comm, .fun = sum, .desc = TRUE))
+# 
+# 
+# unique(ONODES$Family)
+# 
+# library(ggrepel)
+# 
+# FIG7 <- 
+#   ONODES %>%
+#   ggplot(aes(x=x, y=y)) + 
+#   geom_segment(data=GRAPH_EDGES, aes(x=x, y=y, xend=xend, yend=yend), color='grey') + 
+#   geom_point(shape=21, aes(size=perc_comm, fill=Class)) + 
+#   scale_fill_brewer(palette = 'Set1') + 
+#   geom_text(aes(label=Genus), size=3, nudge_y = .02) + 
+#   geom_point(data = SCFA_NODES, aes(x=x, y=y), size=4, shape=22, fill='black') + 
+#   geom_label(data = SCFA_NODES, aes(x=x, y=y, label=from), size=4,color='white', fill='black')  + 
+#   theme_net() + 
+#   # geom_text_repel(aes(label=Genus))+
+#   theme(legend.position = 'bottom')
+# 
+# 
+# FIG7
+# 
+# ggsave('./output/figure7.jpeg',
+#        plot = FIG7,
+#        device = 'jpeg',
+#        width = 180,
+#        height=180, units = 'mm')
+# 
+# 
+# 
+# ALLSTAR_TAB <- 
+#   ONODES %>% 
+#   select(OTU, perc_comm, Domain:Genus) %>% 
+#   write_tsv('./output/Allstar_OTUs.tsv')
+# 
 
 
 # All OTUs in this figure now have 
