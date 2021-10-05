@@ -279,6 +279,9 @@ plt_net <-
   
  NET <-  fortify(as.edgedf(EDGES), NODES)
   ### geomnet
+ NET <- NET[!is.na(NET$to_id),]
+ NET <- NET[!is.na(NET$from_id),]
+ 
   
   
   gg <- ggplot(data = NET, aes(from_id = from_id, to_id = to_id)) +
@@ -416,16 +419,18 @@ filt_edges <- full_net[[2]] %>%
 
 
 
-full_net_fig7 <- 
+half_net_fig7 <- 
   plt_net(phyloseq_obj = FS12b,
           NODES = filt_nodes, 
           EDGES = filt_edges, 
           highlight_these_nodes = RPS_enriched_OTUs,
-          LAYOUT ='kamadakawai', layout.par = list(niter=10000))
-full_net_fig7
+          LAYOUT ='kamadakawai',
+          layout.par = list(niter=10000)) 
 
+half_net_fig7 <- half_net_fig7 + labs(size='% community')
+half_net_fig7
 
-ggsave('./output/figure7.jpeg',full_net_fig7, width = 9, height = 7, units = 'in')
+ggsave('./output/OLD_figure7.jpeg',half_net_fig7, width = 9, height = 7, units = 'in')
 
 ####
 
@@ -457,7 +462,7 @@ full_net_suppfig <-
           EDGES = filt_edges, 
           highlight_these_nodes = RPS_enriched_OTUs,
           LAYOUT ='kamadakawai', layout.par = list(niter=10000))
-full_net_suppfig
+full_net_suppfig <- full_net_suppfig + labs(size='% community')
 
 
 ggsave('./output/figureS3_all_data_fullnet.jpeg', width = 9, height = 7, units = 'in')
@@ -514,15 +519,16 @@ RPS_full_net_supp_fig <-
           EDGES = filt_edges, 
           highlight_these_nodes = RPS_enriched_OTUs,
           LAYOUT ='kamadakawai', layout.par = list(niter=10000))
-RPS_full_net_supp_fig
 
+RPS_full_net_supp_fig <- RPS_full_net_supp_fig + labs(size='% community')
+RPS_full_net_supp_fig
 
 ggsave('./output/FigureS4_RPS_full_net.jpeg', width = 9, height = 7, units = 'in')
 
 
 
 #####
-# for fig 8
+# for fig 7
 mem <- membership(clouv)
 
 plot(clouv, g)
@@ -577,15 +583,20 @@ filt_edges <- RPS_full_net[[2]] %>%
   filter(from %in% keepers) %>%
   filter(to %in% keepers)
 
-fig8 <- plt_net(phyloseq_obj = FS12b_RPS,
+fig7 <- plt_net(phyloseq_obj = FS12b_RPS,
                NODES = filt_nodes, 
                EDGES = filt_edges, 
                highlight_these_nodes = RPS_enriched_OTUs,
-               LAYOUT ='kamadakawai', layout.par = list(niter=10000))
-fig8
+               LAYOUT ='kamadakawai',SEED = 3,
+               layout.par = list(niter=10000))
+fig7 <- fig7 +
+  labs(size= '% community') +
+  guides(fill = guide_legend(ncol = 3))
 
+fig7 
+  
 
-ggsave('./output/figure8.jpeg', width = 9, height = 7, units = 'in')
+ggsave('./output/figure7.jpeg', width = 9, height = 7, units = 'in')
 # 
 # plt_net(phyloseq_obj = FS12b_RPS,
 #         NODES = BN[[3]],

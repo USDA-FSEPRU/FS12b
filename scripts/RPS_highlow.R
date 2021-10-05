@@ -8,8 +8,8 @@ library(cowplot)
 
 shed_data <- 
   read_tsv('./data/sal_summary.tsv') %>% 
-  mutate(shedding=ifelse(pignum %in% c(373,321,181,392,97), 'low', 
-         ifelse(pignum %in% c(50, 93,355, 244), 'high', 'CON')), 
+  mutate(shedding=ifelse(pignum %in% c(373,321,181,392,97), 'RPS low', 
+         ifelse(pignum %in% c(50, 93,355, 244), 'RPS high', 'CON')), 
          treatment=ifelse(treatment == 'control', 'CON', treatment)) %>% 
   filter(treatment %in% c('CON', 'RPS'))
 
@@ -17,7 +17,7 @@ shed_data <-
 
 # pbuild$data
 
-my_cols <- c(low='#377EB8', high='#E41A1C', CON='#4DAF4A')
+my_cols <- c(`RPS low`='#377EB8', `RPS high`='#E41A1C', CON='#4DAF4A')
 #4DAF4A green
 #E41A1C red
 #377EB8 blue
@@ -29,7 +29,8 @@ p1 <- shed_data %>%
   # scale_fill_brewer(palette = 'Set1') + 
   scale_fill_manual(values = my_cols) + 
   theme_cowplot() + 
-  xlab('')
+  xlab('')+
+  theme(legend.title = element_blank())
 
 
 
@@ -71,8 +72,8 @@ FS12b_HL <- FS12b %>% subset_samples(treatment %in% c('CON', 'RPS'))
 # FS12b_HL %>% subset_samples(treatment == 'RPS') %>% sample_data() %>% select(pignum)
 
 
-FS12b_HL@sam_data$shed <- ifelse(FS12b_HL@sam_data$pignum %in% c(373,321,181,392,97), 'low', 
-                                 ifelse(FS12b_HL@sam_data$pignum %in% c(50, 93,355, 244), 'high', 'CON'))
+FS12b_HL@sam_data$shed <- ifelse(FS12b_HL@sam_data$pignum %in% c(373,321,181,392,97), 'RPS low', 
+                                 ifelse(FS12b_HL@sam_data$pignum %in% c(50, 93,355, 244), 'RPS high', 'CON'))
 
 FS12b_HL@sam_data$set <- paste(FS12b_HL@sam_data$day, FS12b_HL@sam_data$tissue, FS12b_HL@sam_data$shed, sep = '_')
 
@@ -129,7 +130,8 @@ to_conts <- fin[grep('CON', fin$pairs),]
 not_conts <- fin[-grep('CON', fin$pairs),]
 
 to_conts$tissue <- gsub('D[0-9]+ (.*) ([A-Za-z_]+) vs D[0-9]+ .* ([A-Za-z]+)', '\\1', to_conts$pairs)
-to_conts$treatment <- gsub('D[0-9]+ .* ([A-Za-z_]+) vs D[0-9]+ .* ([A-Za-z]+)', '\\2', to_conts$pairs)
+to_conts$treatment <- gsub('D[0-9]+ .* ([A-Za-z_]+) vs D[0-9]+ .* ([A-Za-z]+)', '\\2', to_conts$pairs) %>% 
+  paste('RPS', .)
 
 
 to_conts$p.fdr <- p.adjust(to_conts$p.value, method = 'fdr')
@@ -141,31 +143,35 @@ to_conts$p.fdr.lab <- ifelse(to_conts$p.fdr < 0.05, to_conts$p.fdr, NA)
 # to_conts %>% write_tsv('./fig_dat/High_low_PERMANOVA.tsv')
 
 # figure 5ish
-p2 <- to_conts %>% filter(tissue =='feces') %>% 
+p2 <- to_conts %>% 
+  filter(tissue =='feces') %>% 
   ggplot(aes(x=day, y=F.Model, group=treatment, fill=treatment, color=treatment, label=p.fdr.lab)) +
   geom_line(size=1.52) +
   geom_point(shape=21, show.legend = F) + 
   scale_color_brewer(palette = 'Set1') + 
   geom_label(color='black', show.legend = F) +
   theme_cowplot()+
-  scale_fill_brewer(palette = 'Set1') + 
-  labs(color='Shedding') #+
-  # xlab('')
-  # ggtitle('Community differences compared to control group over time', subtitle = 'RPS only') + labs(fill='Shedding', 
-                                                                                                     
+  scale_fill_brewer(palette = 'Set1') +
+  theme(legend.title = element_blank())
 
 p2
 
 p3 <- 
-  to_conts %>% filter(!(tissue %in% c('feces', 'tet', 'il_muc'))) %>% 
-  ggplot(aes(x=tissue, y=F.Model, fill=treatment)) +
+  to_conts %>%
+  filter(!(tissue %in% c('feces', 'tet', 'il_muc'))) %>% 
+  mutate(tissue2= case_when(
+    tissue == 'cec_cont'    ~ 'Cecal Contents', 
+    tissue == 'cec_muc'     ~ 'Cecal Mucosa'
+  )) %>% 
+  ggplot(aes(x=tissue2, y=F.Model, fill=treatment)) +
   geom_col(position = 'dodge', color='black') + geom_text(aes(label=p.fdr.lab), position=position_dodge(width = 1), vjust=1.5) + 
   # ggtitle('PERMANOVA F.stat. : Difference compared to controls across tissues',
   #         subtitle = 'Higher values represent a greater difference compared to control')  +
   scale_fill_brewer(palette = 'Set1') + 
   xlab('')+
-  theme_cowplot() + 
-  labs(fill='Shedding')
+  theme_cowplot() +
+  theme(legend.title = element_blank(), 
+        legend.position = 'top')
 
 
 p3
@@ -184,7 +190,7 @@ to_conts %>% write_tsv('./output/PERMANOVAs_highlow_vs_control.tsv')
 
 fig_S1 <- ggdraw()+
   draw_plot(p1, 0,.45,.45,.55)+
-  draw_plot(p3, .45,.45,.55,.45)+
+  draw_plot(p3, .45,.45,.55,.55)+
   draw_plot(p2, 0,0,1,.45)+
   draw_plot_label(x=c(0,0, .45), y=c(1,.45,1), label = c('A', 'B','C'))
 fig_S1

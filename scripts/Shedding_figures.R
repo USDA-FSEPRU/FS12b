@@ -426,7 +426,8 @@ tissum %>% filter(tissue=='cecal_cont')
 ### Figure 3A
 F3A <- means.emm %>%
   mutate(treatment=factor(treatment, levels = c('CON', 'RPS', 'FAM', 'RCS')), 
-         conf.low=ifelse(conf.low<0, 0, conf.low)) %>% 
+         conf.low=ifelse(conf.low<0, 0, conf.low), 
+         tissue2=ifelse(tissue == 'cecal_cont', 'Cecal Cont.', tissue)) %>% 
   ggplot(aes(x=treatment, y=estimate, fill=treatment, group=treatment)) +
   # geom_jitter(aes(x=time_point, y=log_sal, color=treatment), data=filter(sal_data, !(treatment %in% c('Zn+Cu', 'Bglu'))& pignum !=101), alpha=.5) + 
   geom_col(aes(fill=treatment), size=1.5)+
@@ -441,7 +442,7 @@ F3A <- means.emm %>%
         axis.title.y = element_text(size = 11), 
         panel.grid.major = element_line(color='grey', size=.25))+
   # ggtitle('tissue colonization') +
-  facet_wrap(~tissue, ncol = 5)
+  facet_wrap(~tissue2, ncol = 5)
 
 
 F3A
@@ -452,14 +453,15 @@ F3A
 # Figure 3B
 
 F3B <- contrast.emm %>%
-  mutate(p.plot =ifelse(adj.p.value <= 0.05, adj.p.value, NA)) %>% 
+  mutate(p.plot =ifelse(adj.p.value <= 0.05, adj.p.value, NA), 
+         tissue2=ifelse(tissue == 'cecal_cont', 'Cecal Cont.', tissue)) %>% 
   ggplot(aes(x=contrast, y=estimate, ymin=conf.low, ymax=conf.high, color=contrast)) +
   geom_hline(yintercept = 0, color='black')+
   geom_pointrange(size=1, fatten = .5) +
   geom_point(aes(fill=contrast), color='black', shape=21, size=3)+
   geom_text(aes(label=round(p.plot, digits = 4)), fontface='bold', nudge_x = .2)+
   coord_flip() + 
-  facet_wrap(.~tissue, ncol = 5) +
+  facet_wrap(.~tissue2, ncol = 5) +
   ylim(-3.5,3.5) + 
   scale_color_manual(values=c('red','orange','#3399FF')) +
   scale_fill_manual(values=c('red','orange','#3399FF')) +
