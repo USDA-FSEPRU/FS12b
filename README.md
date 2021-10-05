@@ -10,7 +10,7 @@ mothur "#pcr.seqs(fasta=silva.nr_v132.align, start=11894, end=25319, keepdots=F,
                 unique.seqs()"  
   
 
-##### need to copy over data from motur out
+##### need to copy over data from mothur out
  1029  cp './raw_data/NEW_MOTHUR_OUT/FS12b.shared' ./data/
  1030  cp './raw_data/NEW_MOTHUR_OUT/FS12b_OTU.taxonomy' ./data/
 
