@@ -463,7 +463,7 @@ full_net_suppfig <-
           highlight_these_nodes = RPS_enriched_OTUs,
           LAYOUT ='kamadakawai', layout.par = list(niter=10000))
 full_net_suppfig <- full_net_suppfig + labs(size='% community')
-
+full_net_suppfig
 
 ggsave('./output/figureS3_all_data_fullnet.jpeg', width = 9, height = 7, units = 'in')
 
@@ -536,6 +536,23 @@ plot(clouv, g)
 hist(degree(g))
 
 DEGREE <- degree(g)
+neighbors()
+
+vertex_names <- V(g)$name
+
+SCFA_OTUs <- 
+  c(neighbors(g, v = 'increased_caproate')$name, 
+    neighbors(g, v = 'increased_valerate')$name, 
+    neighbors(g, v = 'increased_butyrate')$name) %>% 
+  unique()
+
+
+
+Sal_OTUs <-
+  c(neighbors(g, v = 'decreased_log_sal')$name) %>% 
+  unique()
+
+connecting_OTUs <- Sal_OTUs[Sal_OTUs %in% SCFA_OTUs]
 
 
 
@@ -565,11 +582,11 @@ keeps <- names(mem) %in% c('increased_butyrate',
                   'increased_succinate', 
                   'decreased_AULC')
 
-mem[keeps] %>% unique()
-
+keep_clusts <- mem[keeps] %>% unique()
+# 3, 5, 2
 # 5, 7, 1
 
-keepers <- membership(clouv)[(membership(clouv) %in% c(1,5,7))] %>% names()
+keepers <- membership(clouv)[(membership(clouv) %in% keep_clusts)] %>% names()
 
 filt_net <- 
   RPS_full_net[[1]] %>% 
@@ -586,7 +603,7 @@ filt_edges <- RPS_full_net[[2]] %>%
 fig7 <- plt_net(phyloseq_obj = FS12b_RPS,
                NODES = filt_nodes, 
                EDGES = filt_edges, 
-               highlight_these_nodes = RPS_enriched_OTUs,
+               highlight_these_nodes = connecting_OTUs,
                LAYOUT ='kamadakawai',SEED = 3,
                layout.par = list(niter=10000))
 fig7 <- fig7 +
@@ -594,9 +611,9 @@ fig7 <- fig7 +
   guides(fill = guide_legend(ncol = 3))
 
 fig7 
-  
 
-ggsave('./output/figure7.jpeg', width = 9, height = 7, units = 'in')
+
+ggsave('./output/figure7.jpeg', width = 9, height = 7, units = 'in', bg='white')
 # 
 # plt_net(phyloseq_obj = FS12b_RPS,
 #         NODES = BN[[3]],
