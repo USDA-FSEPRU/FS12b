@@ -335,8 +335,6 @@ tis$treatment <- fct_recode(tis$treatment, CON='control', RPS='RPS', FAM='Acid',
   factor(., levels = c('CON', 'RPS', 'FAM', 'RCS'))
 
 
-
-
 sal_tis21 <- 
   tis %>%
   mutate(pignum=factor(pignum), 
@@ -492,10 +490,10 @@ fig_2
 
 
 ggsave(fig_2,
-       filename = './output/figure2.jpeg',
+       filename = './output/figure2.tiff',
        width = 270,
        height = 190,
-       device = 'jpeg',
+       device = 'tiff',
        dpi = 300,
        units = 'mm', 
        bg='white')
@@ -538,10 +536,10 @@ fig_3
 
 
 ggsave(fig_3,
-       filename = './output/figure3.jpeg',
+       filename = './output/figure3.tiff',
        width = 180,
        height = 150,
-       device = 'jpeg',
+       device = 'tiff',
        dpi = 300,
        units = 'mm', 
        bg='white')

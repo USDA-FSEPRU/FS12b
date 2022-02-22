@@ -1033,10 +1033,10 @@ fig_4
 
 
 ggsave(fig_4,
-       filename = './output/figure4.jpeg',
+       filename = './output/figure4.tiff',
        width = 250,
        height = 140,
-       device = 'jpeg',
+       device = 'tiff',
        dpi = 300,
        units = 'mm', scale = 1.2, 
        bg='white')
@@ -1052,10 +1052,10 @@ fig_4_v2
 
 
 ggsave(fig_4_v2,
-       filename = './output/figure4_v2.jpeg',
+       filename = './output/figure4_v2.tiff',
        width = 250,
        height = 250,
-       device = 'jpeg',
+       device = 'tiff',
        dpi = 300,
        units = 'mm', scale = 1.2, 
        bg='white')
@@ -1223,7 +1223,7 @@ FIG5 <-
   draw_plot_label(x=c(0,0, .6), y=c(1,.45,1), label = c('A', 'B','C'))
 
 FIG5
-ggsave(filename = './output/figure5.jpeg', plot = FIG5, device = 'jpeg', 
+ggsave(filename = './output/figure5.tiff', plot = FIG5, device = 'tiff', 
        width = 310, 
        height=250, units = 'mm', 
        scale = 1.2, 

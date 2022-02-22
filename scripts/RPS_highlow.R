@@ -195,7 +195,7 @@ fig_S1 <- ggdraw()+
   draw_plot_label(x=c(0,0, .45), y=c(1,.45,1), label = c('A', 'B','C'))
 fig_S1
 
-ggsave('output/figureS1.jpeg', height=5, width = 7, units = 'in', bg='white')
+ggsave('output/figureS1.tiff',device = 'tiff', height=5, width = 7, units = 'in', bg='white')
 
 ###
 
