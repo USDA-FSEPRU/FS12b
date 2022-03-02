@@ -79,6 +79,17 @@ FS12b_HL@sam_data$set <- paste(FS12b_HL@sam_data$day, FS12b_HL@sam_data$tissue, 
 
 FS12b_HL@sam_data
 
+##########
+
+
+
+
+
+##########
+
+
+
+
 
 PW.ad <- pairwise.adonis(x=rrarefy(FS12b_HL@otu_table, min(rowSums(FS12b_HL@otu_table))), factors = FS12b_HL@sam_data$set, sim.method = 'bray', p.adjust.m = 'none', perm = 9999)
 # PW.ad <- pairwise.adonis(x=rrarefy(FS12b_HL@otu_table, min(rowSums(FS12b_HL@otu_table))), factors = FS12b_HL@sam_data$set, sim.method = 'jaccard', p.adjust.m = 'none', permutations = 9999)
@@ -87,7 +98,34 @@ PW.ad$pairs
 
 goods <- PW.ad[grep('(.*)_(.*) vs \\1_.*', PW.ad$pairs),]
 
-# times <- PW.ad[grep('(.*)_(.*)_(.*)_(.*) vs (.*)_(.*)_\\3_\\4', PW.ad$pairs),]
+
+
+times <- PW.ad[grep('(.*)_(.*)_(.*) vs (.*)_(\\2)_(\\3)', PW.ad$pairs),]
+
+D0_comps <- 
+  times %>%
+  mutate(day1=sub('(.*)_(.*)_(.*) vs (.*)_(.*)_(.*)','\\1',pairs), 
+         day2=sub('(.*)_(.*)_(.*) vs (.*)_(.*)_(.*)','\\4',pairs), 
+         treatment=sub('(.*)_(.*)_(.*) vs (.*)_(.*)_(.*)','\\3',pairs),
+         day_comp=ifelse(day1 == 'D0', day1, day2 ), 
+         day=ifelse(day1 == 'D0', day2, day1 )) %>% 
+  filter(day_comp=='D0') %>% 
+  mutate(
+    day_num=as.numeric(sub('D', '', day)),
+    day=factor(day, levels = c('D0', 'D2', 'D7', 'D14', 'D21')))
+
+
+D0_comps %>% 
+  ggplot(aes(x=day, y=R2, color=treatment)) + geom_point() + 
+  geom_text(aes(label=p.value)) + 
+  geom_line(aes(group=treatment))
+
+
+D0_comps %>% 
+  ggplot(aes(x=day, y=F.Model, color=treatment)) + geom_point() + 
+  geom_text(aes(label=p.value)) + 
+  geom_line(aes(group=treatment))
+
 
 length(goods[,1])
 

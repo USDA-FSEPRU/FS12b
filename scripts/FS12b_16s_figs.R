@@ -655,12 +655,15 @@ PW.ad <- pairwise.adonis(x=data.frame(FS12b_rare@otu_table), factors = FS12b_rar
 # report this with beginning diffs in beta div
 # adonis(data.frame(FS12b_rare@otu_table) ~ tissue + day + treatment, data = data.frame(FS12b_rare@sam_data))
 
-adonis(data.frame(FS12b_rare@otu_table) ~ day + treatment, data = data.frame(FS12b_rare@sam_data))
+adonis(data.frame(FS12b_rare@otu_table) ~ day + treatment + log_sal, data = data.frame(FS12b_rare@sam_data))
 
 rownames(data.frame(FS12b_rare@otu_table)) == rownames(data.frame(FS12b_rare@sam_data))
 
+# adonis(matrix~treatment + mouseID,data=data,strata=mouseID)
 
-
+# within subjects?
+adonis(data.frame(FS12b_rare@otu_table)~ day + log_sal ,
+       data=data.frame(FS12b_rare@sam_data),strata=FS12b_rare@sam_data$pignum)
 
 #######
 
@@ -671,6 +674,27 @@ PW.ad$pairs
 goods <- PW.ad[grep('(.*)_(.*)_(.*)_(.*) vs (.*)_\\2_\\3_(.*)', PW.ad$pairs),]
 
 times <- PW.ad[grep('(.*)_(.*)_(.*)_(.*) vs (.*)_(.*)_\\3_\\4', PW.ad$pairs),]
+
+
+### TIMEPOINTS COMPARED TO D0 WITHIN EACH TREATMENT ###
+times <- 
+  times %>%
+  mutate(treatment=sub('(.*)_(.*)_(.*)_(.*) vs (.*)_(.*)_(.*)_(.*)','\\4',pairs), 
+         day1=sub('(.*)_(.*)_(.*)_(.*) vs (.*)_(.*)_\\3_(.*)','\\2',pairs),
+         day2=sub('(.*)_(.*)_(.*)_(.*) vs (.*)_(.*)_\\3_(.*)','\\6',pairs), 
+         Dcomp=ifelse(day1 == 'D0', day1, day2),
+         day=ifelse(day1 == 'D0', day2, day1),
+         tissue=sub('(.*)_(.*)_(.*)_(.*) vs (.*)_(.*)_(.*)_(.*)','\\3',pairs), 
+         day=factor(day, levels = c('D0', 'D2', 'D7', 'D14', 'D21')))
+
+times %>% 
+  filter(Dcomp == 'D0') %>% 
+  ggplot(aes(x=day, y=R2, color=treatment)) +
+  geom_line(aes(group=treatment)) +
+  geom_point() + 
+  geom_text_repel(aes(label=p.value))
+
+library(ggrepel)
 
 # length(goods[,1])
 
@@ -743,6 +767,31 @@ FIG4A <-
         legend.position = 'none')
   # ggtitle('Community differences compared to control group over time', subtitle = )
 FIG4A
+
+###
+# for reviewer
+
+FIG4SUP <- 
+  to_conts %>% 
+  filter(tissue == 'feces') %>%
+  ggplot(aes(x=daynum, y=R2, group=treatment, fill=treatment, color=treatment, label=p.fdr.lab)) +
+  geom_line(size=1.52) +
+  geom_point(shape=21) + 
+  geom_label(color='black', show.legend = FALSE, fontface='bold', size=4) +
+  scale_color_manual(values=c('#3399FF', 'orange', 'red', 'grey', 'purple')) + 
+  scale_fill_manual(values=c('#3399FF', 'orange', 'red', 'grey', 'purple')) +
+  theme_cowplot() + 
+  xlab('Days post inoculation') + 
+  ylab('F.Model vs Control') + 
+  theme(panel.grid.major  = element_line(color='grey'), 
+        legend.position = 'none')
+# ggtitle('Community differences compared to control group over time', subtitle = )
+FIG4A
+
+
+###
+
+
 
 FIG4B <- shanfig1
 
