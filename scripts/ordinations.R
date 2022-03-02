@@ -73,17 +73,20 @@ FS12b_feces_nmds[[1]] %>%
   geom_point(alpha=.5) +
   geom_segment(aes(xend=centroidX, yend=centroidY), alpha=.5)+
   geom_path(data=centroid_dat, aes(group=treatment), size=1.2) + 
-  geom_label(data=centroid_dat,size=2.5,
+  geom_label(data=centroid_dat,size=2.2,
              aes(label=sub('D', '',day), fill=treatment),
              color='white', 
              fontface='bold') + 
   theme_bw() + 
-  facet_wrap(~treatment) +
+  facet_wrap(~treatment, ncol=1) +
   scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple'))+
-  scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple'))  
+  scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple'))  +
+  labs(caption = paste('NMDS stress =', signif(FS12b_feces_nmds[[3]]$stress, 2)))+
+  theme(legend.position='bottom')
 
 
-ggsave('output/spectrum_revisions/figure_S2.jpeg')
+ggsave('output/spectrum_revisions/figure_S1_time_NMDS.jpeg', 
+       height=9, width = 7, units = 'in', bg='white')
 
 
 df_ell <-
@@ -91,11 +94,12 @@ df_ell <-
   mutate(MDS1=NMDS1, MDS2=NMDS2, 
          day=gsub('(.*)_(.*)','\\1', group), 
          treatment=gsub('(.*)_(.*)','\\2', group)) %>% 
-  mutate(day=factor(day, levels = c('D0', 'D2', 'D7', 'D14', 'D21')))
+  mutate(day=factor(day, levels = c('D0', 'D2', 'D7', 'D14', 'D21'))) %>% 
+  arrange(da)
   
 
-df_ell$day <- gsub('(.*)_(.*)','\\1', df_ell$group)
-df_ell$treatment <- gsub('(.*)_(.*)','\\2', df_ell$group)
+# df_ell$day <- gsub('(.*)_(.*)','\\1', df_ell$group)
+# df_ell$treatment <- gsub('(.*)_(.*)','\\2', df_ell$group)
 
 FS12b_feces_nmds[[1]] %>%
   mutate(day=factor(day, levels = c('D0', 'D2', 'D7', 'D14', 'D21'))) %>% 
@@ -106,11 +110,16 @@ FS12b_feces_nmds[[1]] %>%
   geom_segment(aes(xend=centroidX, yend=centroidY), alpha=.5)+
   geom_path(data=df_ell, aes(group=group), size=1.1) +
   theme_bw() + 
-  facet_wrap(~day, nrow=3) +
+  facet_wrap(~day, ncol=1) +
   scale_color_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple'))+
-  scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple'))  
+  scale_fill_manual(values=c('#33CC33', '#3399FF', 'orange', 'red', 'grey', 'purple'))  +
+  labs(caption = paste('NMDS stress =', signif(FS12b_feces_nmds[[3]]$stress, 2)))+
+  theme(legend.position='bottom')
+  
+
+FS12b_feces_nmds[[3]]$stress
 
 
 
-
-ggsave('output/spectrum_revisions/figure_S3.jpeg')
+ggsave('output/spectrum_revisions/figure_S2_treatment_NMDS.jpeg', 
+       height=9, width = 6, units = 'in', bg='white')

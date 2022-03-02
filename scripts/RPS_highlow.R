@@ -96,7 +96,7 @@ PW.ad <- pairwise.adonis(x=rrarefy(FS12b_HL@otu_table, min(rowSums(FS12b_HL@otu_
 PW.ad$pairs
 
 
-goods <- PW.ad[grep('(.*)_(.*) vs \\1_.*', PW.ad$pairs),]
+goods <- PW.ad[grep('(.*)_(.*)_(.*) vs \\1_(.*)_(.*)', PW.ad$pairs),]
 
 
 
@@ -112,24 +112,17 @@ D0_comps <-
   filter(day_comp=='D0') %>% 
   mutate(
     day_num=as.numeric(sub('D', '', day)),
-    day=factor(day, levels = c('D0', 'D2', 'D7', 'D14', 'D21')))
-
-
-D0_comps %>% 
-  ggplot(aes(x=day, y=R2, color=treatment)) + geom_point() + 
-  geom_text(aes(label=p.value)) + 
-  geom_line(aes(group=treatment))
+    day=factor(day, levels = c('D0', 'D2', 'D7', 'D14', 'D21')), 
+    p.adjusted=p.adjust(p.value, method = 'fdr'), 
+    pplot=ifelse(p.adjusted < 0.05 , p.adjusted, NA))
 
 
 D0_comps %>% 
   ggplot(aes(x=day, y=F.Model, color=treatment)) + geom_point() + 
-  geom_text(aes(label=p.value)) + 
+  geom_text(aes(label=pplot)) + 
   geom_line(aes(group=treatment))
 
 
-length(goods[,1])
-
-# goods$p.adjusted <- p.adjust(p=goods$p.value,method = 'holm')
 
 goods$pairs
 
@@ -215,25 +208,21 @@ p3 <-
 p3
 
 
+to_conts %>%
+  select(pairs, F.Model, R2, p.value, p.adjusted) %>% 
+  mutate(across(where(is.numeric), .fns = ~signif(.x, 2))) %>% 
+  transmute(pairs, F.Model, R2, p.value, p.fdr=p.adjusted) %>% 
+  write_tsv('./output/spectrum_revisions/Table_S5_PERMANOVAs_highlow_vs_control.tsv')
 
 
-
-to_conts %>% write_tsv('./output/PERMANOVAs_highlow_vs_control.tsv')
-
-
-
-
-
-### cowplot
-
-fig_S1 <- ggdraw()+
+fig_S4 <- ggdraw()+
   draw_plot(p1, 0,.45,.45,.55)+
   draw_plot(p3, .45,.45,.55,.55)+
   draw_plot(p2, 0,0,1,.45)+
   draw_plot_label(x=c(0,0, .45), y=c(1,.45,1), label = c('A', 'B','C'))
-fig_S1
+fig_S4
 
-ggsave('output/figureS1.tiff',device = 'tiff', height=5, width = 7, units = 'in', bg='white')
+ggsave('output/spectrum_revisions/figureS4.tiff',device = 'tiff', height=5, width = 7, units = 'in', bg='white')
 
 ###
 
@@ -244,66 +233,80 @@ HIGH_LOW_META <- FS12b_HL@sam_data %>% data.frame()
 
 HIGH_LOW_NMDS <- NMDS_ellipse(OTU_table=HIGH_LOW_OTU, metadata = HIGH_LOW_META, grouping_set = 'set')
 
-HIGH_LOW_NMDS[[1]]$shed <- factor(HIGH_LOW_NMDS[[1]]$shed, levels = c('high', 'low', 'Control'))
+HIGH_LOW_NMDS[[1]]$shed <- factor(HIGH_LOW_NMDS[[1]]$shed, levels = c('RPS high', 'RPS low', 'CON'))
 
-HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='D0') %>%
+HIGH_LOW_NMDS[[1]] <- 
+  HIGH_LOW_NMDS[[1]] %>% 
+  mutate(day=factor(day, levels = c('D0', 'D2', 'D7', 'D14', 'D21')))
+
+
+p_highlow_NMDS <- 
+  HIGH_LOW_NMDS[[1]] %>% 
+  filter(tissue == 'F') %>%
   ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + 
-  # geom_point(size=3)+
-  geom_text(aes(label=pignum))+
-  geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + scale_color_brewer(palette = 'Set1') + 
-  ggtitle('Feces Day 0, RPS high/low & control')
+  geom_point(data=subset(HIGH_LOW_NMDS[[1]], select = -day), color='grey')+
+  geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + 
+  scale_color_brewer(palette = 'Set1') + 
+  geom_point(size=2.5)+
+  # ggtitle('Feces Day 0, RPS high/low & control') +
+  facet_wrap(~ day, nrow=3) + 
+  theme_bw()
+  
+ggsave(plot=p_highlow_NMDS, 
+       filename = 'output/spectrum_revisions/FigureS5_highlowNMDS.jpeg', 
+       height=5, width = 7, units = 'in', bg='white')
 
 
-HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='D2') %>%
-  ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + 
-  # geom_point(size=3)+
-  geom_text(aes(label=pignum))+
-  geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + scale_color_brewer(palette = 'Set1') + 
-  ggtitle('Feces Day 2, RPS high/low & control')
-
-HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='D7') %>%
-  ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + 
-  # geom_point(size=3)+
-  geom_text(aes(label=pignum))+
-  geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
-  ggtitle('Feces Day 7, RPS high/low & control')
-
-HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='D14') %>%
-  ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) +
-  # geom_point(size=3)+
-  geom_text(aes(label=pignum))+
-  geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
-  ggtitle('Feces Day 14, RPS high/low & control')
-
-HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='D21') %>%
-  ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) +
-  # geom_point(size=3)+
-  geom_text(aes(label=pignum))+
-  geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
-  ggtitle('Feces Day 21, RPS high/low & control')
-
-HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'X' & day =='D21') %>%
-  ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + 
-  # geom_point(size=3)+
-  geom_text(aes(label=pignum))+
-  geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
-  ggtitle('Feces Day 21, RPS high/low & control, Cecal mucosa')
-
-HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'C' & day =='D21') %>%
-  ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) +
-  # geom_point(size=3)+
-  geom_text(aes(label=pignum))+
-  geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
-  ggtitle('Feces Day 21, RPS high/low & control, Cecal contents')
-
-HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'I' & day =='D21') %>%
-  ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + 
-  # geom_point(size=3)+
-  geom_text(aes(label=pignum))+
-  geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
-  ggtitle('Feces Day 21, RPS high/low & control, Ileal mucosa')
-
-
+# HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='D2') %>%
+#   ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + 
+#   # geom_point(size=3)+
+#   geom_text(aes(label=pignum))+
+#   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5) + scale_color_brewer(palette = 'Set1') + 
+#   ggtitle('Feces Day 2, RPS high/low & control')
+# 
+# HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='D7') %>%
+#   ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + 
+#   # geom_point(size=3)+
+#   geom_text(aes(label=pignum))+
+#   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
+#   ggtitle('Feces Day 7, RPS high/low & control')
+# 
+# HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='D14') %>%
+#   ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) +
+#   # geom_point(size=3)+
+#   geom_text(aes(label=pignum))+
+#   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
+#   ggtitle('Feces Day 14, RPS high/low & control')
+# 
+# HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'F' & day =='D21') %>%
+#   ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) +
+#   # geom_point(size=3)+
+#   geom_text(aes(label=pignum))+
+#   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
+#   ggtitle('Feces Day 21, RPS high/low & control')
+# 
+# HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'X' & day =='D21') %>%
+#   ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + 
+#   # geom_point(size=3)+
+#   geom_text(aes(label=pignum))+
+#   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
+#   ggtitle('Feces Day 21, RPS high/low & control, Cecal mucosa')
+# 
+# HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'C' & day =='D21') %>%
+#   ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) +
+#   # geom_point(size=3)+
+#   geom_text(aes(label=pignum))+
+#   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
+#   ggtitle('Feces Day 21, RPS high/low & control, Cecal contents')
+# 
+# HIGH_LOW_NMDS[[1]] %>% filter(tissue == 'I' & day =='D21') %>%
+#   ggplot(aes(x=MDS1, y=MDS2, group=set, color=shed)) + 
+#   # geom_point(size=3)+
+#   geom_text(aes(label=pignum))+
+#   geom_segment(aes(xend =centroidX , yend = centroidY), alpha=0.5)+ scale_color_brewer(palette = 'Set1') + 
+#   ggtitle('Feces Day 21, RPS high/low & control, Ileal mucosa')
+# 
+# 
 
 
 
@@ -324,6 +327,8 @@ FS12_RPS@sam_data$set <- paste(FS12_RPS@sam_data$set, FS12_RPS@sam_data$shed, se
 #
 
 # Keeping samples separate by day #
+library(DESeq2)
+
 
 highlow_DESEQ <- 
   function(phyloseq, day, tissue, shrinktype, cookscutoff){
@@ -368,7 +373,7 @@ ihwRes <- IHW::ihw(pvalue ~ baseMean,  data = RPS_split_master, alpha = 0.05)
 
 RPS_split_master$IHW_pval <- IHW::adj_pvalues(ihwRes)
 
-RPS_split_master <- RPS_split_master %>% filter(IHW_pval < 0.1 & abs(log2FoldChange) > 0.5)
+RPS_split_master <- RPS_split_master %>% filter(IHW_pval < 0.1 & abs(log2FoldChange) > 0.25)
 
 #  NEED TO DO WORK HERE #
 
@@ -377,7 +382,7 @@ RPS_split_master$set <- paste(RPS_split_master$day, RPS_split_master$tissue, sep
 RPS_split_master$set <- factor(RPS_split_master$set, levels = c('D0_F','D2_F' ,'D7_F', 'D14_F', 'D21_F', 'D21_C', 'D21_X', 'D21_I'))
 RPS_split_master$newp <- signif(RPS_split_master$IHW_pval, digits = 2)
 RPS_split_master <- RPS_split_master %>% mutate(newp2=paste0('p=', newp))
-# devtools::install_github('jtrachsel/ggscinames')
+devtools::install_github('jtrachsel/ggscinames')
 library(ggscinames)
 library(grid)
 
@@ -397,8 +402,14 @@ RPS_split_master %>% #filter(set %in% c('D0_feces' ,'D7_feces', 'D14_feces', 'D2
   scale_shape_manual(values=c(21:27))+
   # geom_text_sciname(aes(x=Genus, y=0, sci = Genus, nonsci=newp2, important=imp), size=3) +
   coord_flip() +
-  scale_fill_brewer(palette = 'Set1')
+  scale_fill_brewer(palette = 'Set1') + 
+  guides(fill = guide_legend(override.aes = list(shape = 21)))+
+  geom_hline(yintercept = 0, color='black') + 
+  theme_half_open() + 
+  background_grid()
 
+ggsave('output/spectrum_revisions/figureSXXX_highlow_diffabund.jpeg', 
+       height=5, width = 7, units = 'in', bg='white')
 
 # RPS_split_master %>% filter(set %in% c('D21_feces', 'D21_cecal_content', 'D21_cecal_mucosa')) %>%
 #   ggplot(aes(x=reorder(OTU, log2FoldChange), y=log2FoldChange, fill=Treatment)) +
