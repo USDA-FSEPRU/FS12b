@@ -166,7 +166,7 @@ fig6 <- ggdraw()+
 
 fig6
 
-ggsave(filename = './output/figure6.jpeg', device = 'jpeg', 
+ggsave(filename = './output/figure6.tiff', device = 'tiff', 
        width=280, height=180, units = 'mm', bg='white')
 
 
@@ -195,7 +195,7 @@ fig6_v2 <- ggdraw()+
 
 fig6_v2
 
-ggsave(filename = './output/figure6_v2.jpeg', device = 'jpeg', 
+ggsave(filename = './output/figure6_v2.tiff', device = 'tiff', 
        width=280, height=250, units = 'mm', bg = 'white')
 
 ### D21 CECUM ALL VFAS  ###

@@ -430,7 +430,7 @@ half_net_fig7 <-
 half_net_fig7 <- half_net_fig7 + labs(size='% community')
 half_net_fig7
 
-ggsave('./output/OLD_figure7.jpeg',half_net_fig7, width = 9, height = 7, units = 'in')
+ggsave('./output/OLD_figure7.tiff',half_net_fig7,device = 'tiff', width = 9, height = 7, units = 'in')
 
 ####
 
@@ -465,7 +465,7 @@ full_net_suppfig <-
 full_net_suppfig <- full_net_suppfig + labs(size='% community')
 full_net_suppfig
 
-ggsave('./output/figureS3_all_data_fullnet.jpeg', width = 9, height = 7, units = 'in')
+ggsave('./output/figureS3_all_data_fullnet.tiff',device = 'tiff', width = 9, height = 7, units = 'in')
 
 
 
@@ -523,7 +523,7 @@ RPS_full_net_supp_fig <-
 RPS_full_net_supp_fig <- RPS_full_net_supp_fig + labs(size='% community')
 RPS_full_net_supp_fig
 
-ggsave('./output/FigureS4_RPS_full_net.jpeg', width = 9, height = 7, units = 'in')
+ggsave('./output/FigureS4_RPS_full_net.tiff', device = 'tiff',  width = 9, height = 7, units = 'in')
 
 
 
@@ -536,7 +536,6 @@ plot(clouv, g)
 hist(degree(g))
 
 DEGREE <- degree(g)
-neighbors()
 
 vertex_names <- V(g)$name
 
@@ -613,7 +612,7 @@ fig7 <- fig7 +
 fig7 
 
 
-ggsave('./output/figure7.jpeg', width = 9, height = 7, units = 'in', bg='white')
+ggsave('./output/figure7.eps',device = 'eps',  width = 9, height = 7, units = 'in', bg='white')
 # 
 # plt_net(phyloseq_obj = FS12b_RPS,
 #         NODES = BN[[3]],

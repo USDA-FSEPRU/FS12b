@@ -119,10 +119,10 @@ mfig
 
 
 ggsave(mfig,
-       filename = './output/figure1.jpeg',
+       filename = './output/figure1.tiff',
        width = 180,
        height = 180,
-       device = 'jpeg',
+       device = 'tiff',
        dpi = 300,
        units = 'mm', 
        bg='white')
